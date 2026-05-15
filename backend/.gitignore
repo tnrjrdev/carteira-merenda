@@ -1,0 +1,22 @@
+target/
+.mvn/wrapper/maven-wrapper.jar
+!**/src/main/**/target/
+!**/src/test/**/target/
+
+### IDE ###
+.idea/
+*.iws
+*.iml
+*.ipr
+.vscode/
+
+### H2 Database ###
+data/
+*.db
+*.trace.db
+*.lock.db
+
+### OS ###
+.DS_Store
+Thumbs.db
+merenda_prd.md

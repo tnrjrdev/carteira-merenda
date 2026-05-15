@@ -1,0 +1,12 @@
+node_modules
+dist
+dist-ssr
+*.local
+.env
+.env.local
+.vscode/
+.idea/
+.DS_Store
+# Banco local
+data/*.mv.db
+data/*.log
