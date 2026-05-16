@@ -3,44 +3,94 @@ import api from '../services/api.js';
 import { useAuth } from '../context/AuthContext.jsx';
 import { brl, extractError } from '../utils/format.js';
 
+const categoriaCor = (nome) => {
+  const map = {
+    'Salgados': 'from-amber-400 to-orange-500',
+    'Bebidas': 'from-cyan-400 to-blue-500',
+    'Saudáveis': 'from-emerald-400 to-green-500',
+    'Doces': 'from-pink-400 to-rose-500',
+    'Refeições': 'from-violet-400 to-purple-500',
+  };
+  return map[nome] || 'from-slate-400 to-slate-500';
+};
+
+const ProdutoCard = ({ produto, onAdd, count }) => (
+  <button
+    onClick={() => onAdd(produto)}
+    className="relative text-left rounded-2xl border border-slate-200 bg-white/80 backdrop-blur p-4 hover:border-merenda-400 hover:shadow-glass-hover hover:-translate-y-0.5 transition-all duration-200 active:scale-[0.97] focus:outline-none focus:ring-2 focus:ring-merenda-500/50"
+  >
+    {count > 0 && (
+      <span className="absolute -top-2 -right-2 w-7 h-7 rounded-full bg-merenda-500 text-white text-xs font-bold flex items-center justify-center shadow-md ring-4 ring-white">
+        {count}
+      </span>
+    )}
+    <div className={`w-full h-2 rounded-full bg-gradient-to-r ${categoriaCor(produto.categoriaNome)} mb-3 opacity-80`}></div>
+    <div className="font-semibold text-slate-800 leading-tight line-clamp-2 min-h-[2.5rem]">{produto.nome}</div>
+    {produto.categoriaNome && (
+      <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mt-1">{produto.categoriaNome}</div>
+    )}
+    <div className="flex items-center justify-between mt-3">
+      <span className="text-merenda-600 font-display font-bold text-xl">{brl(produto.preco)}</span>
+      <span className="text-[11px] text-slate-400">Est. {produto.estoque}</span>
+    </div>
+  </button>
+);
+
 export default function CantinaPDV() {
   const { user } = useAuth();
   const [produtos, setProdutos] = useState([]);
+  const [filtro, setFiltro] = useState('');
+  const [categoria, setCategoria] = useState('TODAS');
   const [carrinho, setCarrinho] = useState([]);
   const [token, setToken] = useState('');
   const [err, setErr] = useState(null);
   const [sucesso, setSucesso] = useState(null);
-  const [carregando, setCarregando] = useState(false);
+  const [cobrando, setCobrando] = useState(false);
 
   useEffect(() => {
     api.get(`/produtos/cantina/${user.cantinaId}`).then(({ data }) => setProdutos(data));
   }, [user.cantinaId]);
 
-  const total = useMemo(() =>
-    carrinho.reduce((acc, it) => acc + it.quantidade * it.preco, 0),
-    [carrinho]);
+  const categorias = useMemo(() => {
+    const set = new Set(produtos.map((p) => p.categoriaNome).filter(Boolean));
+    return ['TODAS', ...set];
+  }, [produtos]);
+
+  const produtosFiltrados = useMemo(() => {
+    return produtos.filter((p) => {
+      if (categoria !== 'TODAS' && p.categoriaNome !== categoria) return false;
+      if (filtro && !p.nome.toLowerCase().includes(filtro.toLowerCase())) return false;
+      return true;
+    });
+  }, [produtos, filtro, categoria]);
+
+  const total = useMemo(
+    () => carrinho.reduce((acc, it) => acc + it.quantidade * it.preco, 0),
+    [carrinho]
+  );
+  const totalItens = useMemo(
+    () => carrinho.reduce((acc, it) => acc + it.quantidade, 0),
+    [carrinho]
+  );
+  const countDe = (id) => carrinho.find((i) => i.produtoId === id)?.quantidade || 0;
 
   const adicionar = (produto) => {
     setSucesso(null);
-    setErr(null);
     setCarrinho((c) => {
       const ex = c.find((i) => i.produtoId === produto.id);
-      if (ex) {
-        return c.map((i) => i.produtoId === produto.id ? { ...i, quantidade: i.quantidade + 1 } : i);
-      }
+      if (ex) return c.map((i) => (i.produtoId === produto.id ? { ...i, quantidade: i.quantidade + 1 } : i));
       return [...c, { produtoId: produto.id, nome: produto.nome, preco: Number(produto.preco), quantidade: 1 }];
     });
   };
 
   const alterarQtd = (id, delta) => {
-    setCarrinho((c) => c
-      .map((i) => i.produtoId === id ? { ...i, quantidade: Math.max(0, i.quantidade + delta) } : i)
-      .filter((i) => i.quantidade > 0));
+    setCarrinho((c) =>
+      c.map((i) => (i.produtoId === id ? { ...i, quantidade: Math.max(0, i.quantidade + delta) } : i))
+        .filter((i) => i.quantidade > 0)
+    );
   };
-
-  const remover = (id) => {
-    setCarrinho((c) => c.filter((i) => i.produtoId !== id));
-  };
+  const remover = (id) => setCarrinho((c) => c.filter((i) => i.produtoId !== id));
+  const limpar = () => { setCarrinho([]); setSucesso(null); setErr(null); };
 
   const cobrar = async () => {
     setErr(null);
@@ -51,152 +101,181 @@ export default function CantinaPDV() {
     if (carrinho.length === 0) { setErr('Adicione produtos ao carrinho'); return; }
     if (carrinho.length > 50) { setErr('Máximo de 50 itens diferentes por compra'); return; }
     if (carrinho.some((i) => i.quantidade > 99)) { setErr('Quantidade máxima por item é 99'); return; }
-    
-    setCarregando(true);
+
+    setCobrando(true);
     try {
       const { data } = await api.post('/pagamentos/cobrar', {
-        token: token.trim(),
+        token: t,
         itens: carrinho.map((i) => ({ produtoId: i.produtoId, quantidade: i.quantidade })),
       });
-      setSucesso(`Pagamento de ${brl(data.totalCobrado)} aprovado! Aluno: ${data.estudanteNome}.`);
+      setSucesso({ ...data });
       setCarrinho([]);
       setToken('');
+      // refresh estoque
+      const fresh = await api.get(`/produtos/cantina/${user.cantinaId}`);
+      setProdutos(fresh.data);
     } catch (e) {
       setErr(extractError(e));
     } finally {
-      setCarregando(false);
+      setCobrando(false);
     }
   };
 
   return (
     <div className="space-y-6 animate-fade-in pb-10">
-      <div className="flex items-center gap-3 bg-white/60 backdrop-blur-md p-5 rounded-2xl border border-white/60 shadow-sm">
-        <div className="w-12 h-12 bg-merenda-100 text-merenda-600 rounded-xl flex items-center justify-center shadow-inner">
-          <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
-        </div>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-display font-bold text-slate-800 leading-tight">Ponto de Venda</h1>
-          <p className="text-sm text-slate-500 font-medium">Selecione os itens e escaneie o código do aluno</p>
+          <h1 className="text-3xl font-display font-bold text-slate-900 tracking-tight">PDV — Ponto de Venda</h1>
+          <p className="text-sm text-slate-500 mt-1 font-medium">Selecione produtos e cobre via QR Code do aluno</p>
         </div>
+        {carrinho.length > 0 && (
+          <button onClick={limpar} className="btn-secondary text-sm">
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6M1 7h22M9 7V5a2 2 0 012-2h2a2 2 0 012 2v2" /></svg>
+            Limpar carrinho
+          </button>
+        )}
       </div>
 
-      <div className="grid lg:grid-cols-12 gap-6 items-start">
-        <div className="lg:col-span-8 card bg-white/70">
-          <div className="flex items-center justify-between mb-5 border-b border-slate-100 pb-3">
-            <h2 className="text-lg font-display font-bold text-slate-800">Produtos disponíveis</h2>
-            <span className="badge bg-slate-100 text-slate-600 border border-slate-200">{produtos.length} itens</span>
+      <div className="grid lg:grid-cols-3 gap-6">
+        {/* Catálogo */}
+        <div className="lg:col-span-2 card">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-4">
+            <div className="relative flex-1">
+              <svg className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+              <input
+                className="input pl-10"
+                placeholder="Buscar produto..."
+                value={filtro}
+                onChange={(e) => setFiltro(e.target.value)}
+              />
+            </div>
           </div>
-          
-          <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-4 max-h-[65vh] overflow-y-auto pr-2 custom-scrollbar pb-4">
-            {produtos.map((p) => (
-              <button key={p.id} onClick={() => adicionar(p)}
-                      className="group flex flex-col items-center text-center border-2 border-slate-100/80 rounded-2xl p-4 bg-white hover:border-merenda-400 hover:shadow-glow transition-all duration-300 active:scale-95">
-                <div className="w-16 h-16 rounded-full bg-slate-50 flex items-center justify-center text-2xl mb-3 shadow-sm group-hover:bg-merenda-50 transition-colors">
-                  {p.categoriaNome?.toLowerCase().includes('bebida') ? '🥤' : 
-                   p.categoriaNome?.toLowerCase().includes('salgado') ? '🥐' : 
-                   p.categoriaNome?.toLowerCase().includes('doce') ? '🍫' : '🍔'}
-                </div>
-                <div className="font-semibold text-slate-800 text-sm leading-tight mb-1 line-clamp-2 h-10 flex items-center justify-center w-full">{p.nome}</div>
-                <div className="text-merenda-600 font-display font-bold text-lg mb-2">{brl(p.preco)}</div>
-                <div className={`text-[10px] uppercase tracking-wider font-bold px-2 py-1 rounded-full ${p.estoque > 5 ? 'bg-green-50 text-green-600' : p.estoque > 0 ? 'bg-yellow-50 text-yellow-600' : 'bg-red-50 text-red-600'}`}>
-                  Estoque: {p.estoque}
-                </div>
+
+          <div className="flex gap-2 overflow-x-auto custom-scrollbar pb-2 mb-4 -mx-1 px-1">
+            {categorias.map((cat) => (
+              <button
+                key={cat}
+                onClick={() => setCategoria(cat)}
+                className={`whitespace-nowrap px-3.5 py-1.5 rounded-full text-sm font-medium border transition-all ${
+                  categoria === cat
+                    ? 'bg-merenda-500 text-white border-merenda-500 shadow-sm'
+                    : 'bg-white/70 border-slate-200 text-slate-700 hover:border-merenda-300'
+                }`}
+              >
+                {cat === 'TODAS' ? 'Todas' : cat}
               </button>
             ))}
-            {produtos.length === 0 && (
-              <div className="col-span-full py-12 text-center text-slate-500 flex flex-col items-center">
-                <svg className="w-12 h-12 text-slate-300 mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" /></svg>
-                <p>Nenhum produto cadastrado no momento.</p>
-              </div>
-            )}
           </div>
+
+          {produtosFiltrados.length === 0 ? (
+            <div className="text-center py-12 text-slate-500">
+              <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-3">
+                <svg className="w-8 h-8 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" /></svg>
+              </div>
+              <p>Nenhum produto encontrado.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+              {produtosFiltrados.map((p) => (
+                <ProdutoCard key={p.id} produto={p} onAdd={adicionar} count={countDe(p.id)} />
+              ))}
+            </div>
+          )}
         </div>
 
-        <div className="lg:col-span-4 sticky top-6">
-          <div className="glass-panel overflow-hidden border-t-4 border-t-merenda-500 p-0 flex flex-col shadow-xl">
-            <div className="p-5 border-b border-slate-100 bg-white/50">
-              <h2 className="text-lg font-display font-bold text-slate-800 flex items-center gap-2">
-                <svg className="w-5 h-5 text-merenda-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" /></svg>
-                Carrinho
-              </h2>
-            </div>
-            
-            <div className="p-3 bg-white/40 flex-1 min-h-[250px] max-h-[40vh] overflow-y-auto custom-scrollbar">
-              {carrinho.length === 0 ? (
-                <div className="h-full flex flex-col items-center justify-center text-slate-400 opacity-60">
-                  <svg className="w-16 h-16 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
-                  <p className="text-sm font-medium">O carrinho está vazio</p>
-                </div>
-              ) : (
-                <ul className="space-y-3">
-                  {carrinho.map((i) => (
-                    <li key={i.produtoId} className="flex flex-col bg-white p-3 rounded-xl shadow-sm border border-slate-100">
-                      <div className="flex justify-between items-start mb-2">
-                        <span className="text-sm font-semibold text-slate-800 leading-tight pr-2">{i.nome}</span>
-                        <button onClick={() => remover(i.produtoId)} className="text-slate-400 hover:text-red-500 transition-colors p-1 -mr-1 -mt-1"><svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg></button>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-1 bg-slate-50 rounded-lg p-1 border border-slate-200">
-                          <button onClick={() => alterarQtd(i.produtoId, -1)} className="w-7 h-7 rounded-md bg-white shadow-sm text-slate-600 flex items-center justify-center hover:bg-slate-100 active:bg-slate-200 transition-colors"><svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" /></svg></button>
-                          <span className="w-6 text-center font-bold text-sm text-slate-800">{i.quantidade}</span>
-                          <button onClick={() => alterarQtd(i.produtoId, +1)} className="w-7 h-7 rounded-md bg-white shadow-sm text-slate-600 flex items-center justify-center hover:bg-slate-100 active:bg-slate-200 transition-colors"><svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg></button>
-                        </div>
-                        <div className="font-bold text-slate-800">{brl(i.preco * i.quantidade)}</div>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-
-            <div className="bg-slate-800 text-white p-5">
-              <div className="flex items-end justify-between mb-4">
-                <span className="text-slate-300 text-sm font-medium uppercase tracking-wider">Total a Cobrar</span>
-                <span className="text-3xl font-display font-bold text-merenda-400 leading-none">{brl(total)}</span>
+        {/* Carrinho + Cobrança */}
+        <aside className="card sticky top-24 self-start space-y-4">
+          <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+            <div className="flex items-center gap-2">
+              <div className="w-9 h-9 rounded-xl bg-merenda-50 text-merenda-600 flex items-center justify-center">
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
               </div>
-
-              <div className="space-y-3">
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <svg className="w-5 h-5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm14 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" /></svg>
-                  </div>
-                  <input 
-                    className="w-full pl-10 pr-4 py-3 bg-slate-900 border border-slate-700 text-white rounded-xl focus:ring-2 focus:ring-merenda-500 focus:border-merenda-500 outline-none transition-all placeholder-slate-500 font-mono text-sm shadow-inner" 
-                    placeholder="Código do Aluno"
-                    value={token} 
-                    onChange={(e) => setToken(e.target.value)} 
-                  />
-                </div>
-
-                {err && (
-                  <div className="bg-red-500/20 border border-red-500/50 text-red-200 p-3 rounded-xl text-sm font-medium flex items-start gap-2">
-                    <svg className="w-5 h-5 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                    <span>{err}</span>
-                  </div>
-                )}
-                
-                {sucesso && (
-                  <div className="bg-green-500/20 border border-green-500/50 text-green-200 p-3 rounded-xl text-sm font-medium flex items-start gap-2 animate-fade-in">
-                    <svg className="w-5 h-5 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                    <span>{sucesso}</span>
-                  </div>
-                )}
-
-                <button 
-                  className="w-full bg-gradient-to-r from-merenda-500 to-merenda-600 hover:from-merenda-400 hover:to-merenda-500 text-white font-bold py-4 rounded-xl shadow-glow transition-all active:scale-[0.98] flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:shadow-none"
-                  onClick={cobrar} 
-                  disabled={carrinho.length === 0 || !token || carregando}
-                >
-                  {carregando ? (
-                    <><svg className="animate-spin w-5 h-5 text-white" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Processando...</>
-                  ) : (
-                    <><svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg> Confirmar Venda</>
-                  )}
-                </button>
+              <div>
+                <div className="font-display font-bold text-slate-900">Carrinho</div>
+                <div className="text-xs text-slate-500">{totalItens} {totalItens === 1 ? 'item' : 'itens'}</div>
               </div>
             </div>
           </div>
-        </div>
+
+          {carrinho.length === 0 ? (
+            <div className="text-center py-8 text-slate-400 text-sm">
+              <svg className="w-12 h-12 mx-auto text-slate-200 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
+              Toque nos produtos para adicionar
+            </div>
+          ) : (
+            <ul className="space-y-2 max-h-72 overflow-auto custom-scrollbar -mx-1 px-1">
+              {carrinho.map((i) => (
+                <li key={i.produtoId} className="bg-slate-50/70 border border-slate-100 rounded-xl p-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0 flex-1">
+                      <div className="text-sm font-semibold text-slate-800 truncate">{i.nome}</div>
+                      <div className="text-xs text-slate-500 mt-0.5">{brl(i.preco)} × {i.quantidade}</div>
+                    </div>
+                    <button onClick={() => remover(i.produtoId)} className="text-slate-400 hover:text-red-500 transition shrink-0" title="Remover">
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                    </button>
+                  </div>
+                  <div className="flex items-center justify-between mt-2">
+                    <div className="flex items-center gap-2">
+                      <button onClick={() => alterarQtd(i.produtoId, -1)} className="w-7 h-7 rounded-lg bg-white border border-slate-200 text-slate-700 font-bold hover:border-merenda-400">−</button>
+                      <span className="w-7 text-center font-semibold text-slate-800">{i.quantidade}</span>
+                      <button onClick={() => alterarQtd(i.produtoId, +1)} className="w-7 h-7 rounded-lg bg-white border border-slate-200 text-slate-700 font-bold hover:border-merenda-400">+</button>
+                    </div>
+                    <span className="text-sm font-bold text-slate-800">{brl(i.preco * i.quantidade)}</span>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+
+          <div className="bg-gradient-to-br from-slate-900 to-slate-800 text-white rounded-xl p-4 shadow-md">
+            <div className="flex items-center justify-between">
+              <span className="text-sm uppercase tracking-wider opacity-80">Total</span>
+              <span className="text-3xl font-display font-extrabold tracking-tight">{brl(total)}</span>
+            </div>
+          </div>
+
+          <div>
+            <label className="label">Token do aluno (QR Code)</label>
+            <div className="relative">
+              <svg className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm14 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" /></svg>
+              <input
+                className="input pl-10 font-mono text-sm"
+                placeholder="Cole o código do QR aqui"
+                value={token}
+                onChange={(e) => setToken(e.target.value)}
+              />
+            </div>
+            <p className="text-[11px] text-slate-500 mt-1.5">Em produção, leitura via câmera. Aqui peça ao aluno o código sob o QR.</p>
+          </div>
+
+          {err && (
+            <div className="bg-red-50 border border-red-200 text-red-600 p-3 rounded-xl text-sm flex items-start gap-2">
+              <svg className="w-4 h-4 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+              {err}
+            </div>
+          )}
+          {sucesso && (
+            <div className="bg-green-50 border border-green-200 text-green-700 p-3 rounded-xl text-sm">
+              <div className="flex items-center gap-2 font-semibold">
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+                Cobrança aprovada
+              </div>
+              <div className="mt-1 text-xs">
+                Cobrado <b>{brl(sucesso.totalCobrado)}</b> de <b>{sucesso.estudanteNome}</b><br />
+                Saldo restante: <b>{brl(sucesso.saldoApos)}</b>
+              </div>
+            </div>
+          )}
+
+          <button
+            className="btn-primary w-full text-base py-3.5"
+            onClick={cobrar}
+            disabled={carrinho.length === 0 || !token || cobrando}
+          >
+            {cobrando ? 'Processando...' : `Cobrar ${brl(total)}`}
+          </button>
+        </aside>
       </div>
     </div>
   );

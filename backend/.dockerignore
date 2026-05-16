@@ -1,0 +1,10 @@
+target/
+data/
+*.db
+*.trace.db
+*.lock.db
+.idea/
+.vscode/
+*.iml
+.git/
+.gitignore

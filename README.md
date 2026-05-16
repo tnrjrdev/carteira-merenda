@@ -134,25 +134,47 @@ Todos os endpoints (exceto `/api/auth/**`, `/api/cantinas/publicas` e `/h2-conso
 
 ---
 
-## Como migrar para outro banco (Postgres/Supabase)
+## Deploy
 
-No `application.properties` da pasta `backend/src/main/resources`:
+### Backend → Render
 
-```properties
-spring.datasource.url=jdbc:postgresql://db.<projeto>.supabase.co:5432/postgres
-spring.datasource.username=postgres
-spring.datasource.password=<sua_senha>
-spring.jpa.database-platform=org.hibernate.dialect.PostgreSQLDialect
+**Opção A — Blueprint (1 clique):**
+1. Suba o projeto para o GitHub.
+2. Render → [Blueprints](https://dashboard.render.com/blueprints) → **New Blueprint Instance** → conecte o repo.
+   O `render.yaml` na raiz já provisiona:
+   - Postgres free
+   - Web Service Docker rodando o backend
+   - `JWT_SECRET` gerado automaticamente
+   - `CORS_ORIGINS=*` inicial (ajuste depois para a URL da Vercel)
+
+**Opção B — Manual:**
+1. Render → **New Web Service** → conecte o repo.
+2. Configuração:
+   - Root Directory: `backend`
+   - Runtime: **Docker** (Dockerfile incluso)
+3. Variáveis de ambiente (veja [`backend/.env.example`](backend/.env.example)):
+   - `SPRING_PROFILES_ACTIVE=prod`
+   - `JWT_SECRET=...` (gere com `openssl rand -base64 64`)
+   - `CORS_ORIGINS=https://seu-app.vercel.app`
+   - `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASS` — pegue do Postgres provisionado.
+
+⚠️ **Free tier do Render dorme após 15 min** de inatividade. O primeiro request acorda o serviço em ~30s.
+
+### Frontend → Vercel
+
+1. Vercel → **Add New → Project** → conecte o repo.
+2. Configuração:
+   - Root Directory: `frontend`
+   - Framework: Vite (detectado automaticamente)
+3. Variáveis de ambiente:
+   - `VITE_API_URL=https://merenda-backend.onrender.com/api`
+4. Deploy. Anote a URL gerada e atualize `CORS_ORIGINS` no Render com ela. Redeploy do backend.
+
+### Desenvolvimento local
+
+Os defaults em `application.properties` (H2 file + porta 8080) e o proxy do Vite (`/api → :8080`) continuam funcionando sem nenhuma variável de ambiente. Para apontar o frontend para um backend remoto em dev, crie `frontend/.env.local`:
 ```
-
-E adicione o driver no `pom.xml`:
-
-```xml
-<dependency>
-    <groupId>org.postgresql</groupId>
-    <artifactId>postgresql</artifactId>
-    <scope>runtime</scope>
-</dependency>
+VITE_API_URL=https://merenda-backend.onrender.com/api
 ```
 
 ---

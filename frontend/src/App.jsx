@@ -1,5 +1,6 @@
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { useAuth } from './context/AuthContext.jsx';
+import Landing from './pages/Landing.jsx';
 import Login from './pages/Login.jsx';
 import Register from './pages/Register.jsx';
 import Layout from './components/Layout.jsx';
@@ -33,6 +34,7 @@ export default function App() {
   const { user } = useAuth();
   return (
     <Routes>
+      <Route path="/" element={<Landing />} />
       <Route path="/login" element={user ? <Navigate to={defaultRoute(user.role)} /> : <Login />} />
       <Route path="/register" element={user ? <Navigate to={defaultRoute(user.role)} /> : <Register />} />
 
@@ -45,7 +47,7 @@ export default function App() {
         <Route path="/cantina/pdv" element={<RequireAuth roles={['CANTINA']}><CantinaPDV /></RequireAuth>} />
       </Route>
 
-      <Route path="*" element={<Navigate to={user ? defaultRoute(user.role) : '/login'} replace />} />
+      <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
 }

@@ -8,6 +8,11 @@ html, body, #root {
   height: 100%;
 }
 
+html {
+  scroll-behavior: smooth;
+  scroll-padding-top: 80px;
+}
+
 body {
   font-family: 'Inter', sans-serif;
   color: #0f172a;
@@ -46,4 +51,31 @@ h1, h2, h3, h4, h5, h6 {
   .badge {
     @apply inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold uppercase tracking-wide;
   }
+  .container-narrow {
+    @apply max-w-6xl mx-auto px-4 sm:px-6 lg:px-8;
+  }
+  .section-title {
+    @apply text-3xl md:text-4xl font-display font-bold text-slate-900 tracking-tight;
+  }
+  .section-subtitle {
+    @apply text-base md:text-lg text-slate-600 leading-relaxed;
+  }
+  .feature-icon {
+    @apply w-12 h-12 rounded-2xl flex items-center justify-center text-merenda-600 bg-merenda-50 border border-merenda-100 shadow-sm;
+  }
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.4);
+  border-radius: 3px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(148, 163, 184, 0.7);
 }

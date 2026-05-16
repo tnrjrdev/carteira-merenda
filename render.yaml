@@ -1,0 +1,49 @@
+# Blueprint Render — sobe backend + Postgres em 1 clique.
+# Importe em: https://dashboard.render.com/blueprints
+#
+# Após o deploy, copie a URL gerada para o backend e configure
+# VITE_API_URL no projeto da Vercel apontando para ela.
+
+databases:
+  - name: merenda-db
+    plan: free
+    databaseName: merenda
+    user: merenda
+
+services:
+  - type: web
+    name: merenda-backend
+    runtime: docker
+    plan: free
+    rootDir: backend
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /api/cantinas/publicas
+    envVars:
+      - key: SPRING_PROFILES_ACTIVE
+        value: prod
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_EXPIRATION_MS
+        value: "86400000"
+      - key: CORS_ORIGINS
+        value: "*"
+      - key: DB_HOST
+        fromDatabase:
+          name: merenda-db
+          property: host
+      - key: DB_PORT
+        fromDatabase:
+          name: merenda-db
+          property: port
+      - key: DB_NAME
+        fromDatabase:
+          name: merenda-db
+          property: database
+      - key: DB_USER
+        fromDatabase:
+          name: merenda-db
+          property: user
+      - key: DB_PASS
+        fromDatabase:
+          name: merenda-db
+          property: password
