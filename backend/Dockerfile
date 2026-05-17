@@ -14,9 +14,9 @@ WORKDIR /app
 
 COPY --from=build /app/target/*.jar app.jar
 
-# Render injeta PORT como env var; Spring lê via ${PORT:8080}
+# Render free tier: 512MB RAM / 0.1 CPU. Heap conservador + SerialGC para containers pequenos.
 ENV SPRING_PROFILES_ACTIVE=prod \
-    JAVA_OPTS="-XX:MaxRAMPercentage=75.0"
+    JAVA_OPTS="-Xms128m -Xmx320m -XX:+UseSerialGC -XX:MaxMetaspaceSize=128m -XX:+ExitOnOutOfMemoryError"
 
 EXPOSE 8080
 
