@@ -10,6 +10,9 @@ import EstudanteDashboard from './pages/EstudanteDashboard.jsx';
 import CantinaPainel from './pages/CantinaPainel.jsx';
 import CantinaProdutos from './pages/CantinaProdutos.jsx';
 import CantinaPDV from './pages/CantinaPDV.jsx';
+import CantinaRelatorios from './pages/CantinaRelatorios.jsx';
+import CantinaWebhooks from './pages/CantinaWebhooks.jsx';
+import AdminRede from './pages/AdminRede.jsx';
 
 function RequireAuth({ children, roles }) {
   const { user } = useAuth();
@@ -25,7 +28,7 @@ function defaultRoute(role) {
     case 'RESPONSAVEL': return '/responsavel';
     case 'ESTUDANTE': return '/estudante';
     case 'CANTINA': return '/cantina';
-    case 'ADMIN': return '/responsavel';
+    case 'ADMIN': return '/admin/rede';
     default: return '/login';
   }
 }
@@ -45,6 +48,9 @@ export default function App() {
         <Route path="/cantina" element={<RequireAuth roles={['CANTINA']}><CantinaPainel /></RequireAuth>} />
         <Route path="/cantina/produtos" element={<RequireAuth roles={['CANTINA']}><CantinaProdutos /></RequireAuth>} />
         <Route path="/cantina/pdv" element={<RequireAuth roles={['CANTINA']}><CantinaPDV /></RequireAuth>} />
+        <Route path="/cantina/relatorios" element={<RequireAuth roles={['CANTINA']}><CantinaRelatorios /></RequireAuth>} />
+        <Route path="/cantina/webhooks" element={<RequireAuth roles={['CANTINA']}><CantinaWebhooks /></RequireAuth>} />
+        <Route path="/admin/rede" element={<RequireAuth roles={['ADMIN']}><AdminRede /></RequireAuth>} />
       </Route>
 
       <Route path="*" element={<Navigate to="/" replace />} />

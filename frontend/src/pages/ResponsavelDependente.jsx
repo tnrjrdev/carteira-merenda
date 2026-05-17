@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import api from '../services/api.js';
 import Field from '../components/Field.jsx';
+import PixModal from '../components/PixModal.jsx';
 import { brl, extractError, formatDateTime } from '../utils/format.js';
 
 // --- Subcomponentes ---
@@ -72,6 +73,8 @@ export default function ResponsavelDependente() {
   const [recargaErr, setRecargaErr] = useState(null);
   const [recargaOk, setRecargaOk] = useState(null);
   const [recarregando, setRecarregando] = useState(false);
+  const [pixAtivo, setPixAtivo] = useState(null);
+  const [iniciandoPix, setIniciandoPix] = useState(false);
   const [limites, setLimites] = useState({ limiteDiario: '', limiteSemanal: '' });
   const [limitesOk, setLimitesOk] = useState(null);
 
@@ -117,6 +120,34 @@ export default function ResponsavelDependente() {
     } finally {
       setRecarregando(false);
     }
+  };
+
+  const iniciarPix = async () => {
+    setRecargaErr(null);
+    setRecargaOk(null);
+    const valor = Number(recarga);
+    if (!recarga || isNaN(valor)) { setRecargaErr('Informe um valor válido'); return; }
+    if (valor < 1) { setRecargaErr('Valor mínimo é R$ 1,00'); return; }
+    if (valor > 10000) { setRecargaErr('Valor máximo é R$ 10.000,00'); return; }
+    setIniciandoPix(true);
+    try {
+      const { data } = await api.post('/carteira/recarga-pix', {
+        estudanteId: Number(id),
+        valor,
+      });
+      setPixAtivo(data);
+    } catch (e) {
+      setRecargaErr(extractError(e));
+    } finally {
+      setIniciandoPix(false);
+    }
+  };
+
+  const onPixAprovado = async () => {
+    setPixAtivo(null);
+    setRecarga('');
+    setRecargaOk('Pagamento Pix confirmado e saldo atualizado!');
+    await load();
   };
 
   const salvarLimites = async (e) => {
@@ -214,9 +245,16 @@ export default function ResponsavelDependente() {
             ))}
           </div>
 
-          <button className="btn-primary w-full" disabled={recarregando}>
-            {recarregando ? 'Processando...' : '⚡ Recarregar via Pix'}
-          </button>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <button className="btn-primary" disabled={recarregando}>
+              {recarregando ? 'Processando...' : '⚡ Recarga manual'}
+            </button>
+            <button type="button" onClick={iniciarPix} disabled={iniciandoPix} className="btn-secondary">
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm14 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" /></svg>
+              {iniciandoPix ? 'Gerando QR...' : 'Pagar via Pix QR'}
+            </button>
+          </div>
+          <p className="text-[11px] text-slate-400">A opção <b>Pagar via Pix QR</b> gera um QR Code dinâmico e só credita o saldo após a confirmação do pagamento.</p>
         </form>
 
         <form onSubmit={salvarLimites} className="card space-y-4">
@@ -332,6 +370,14 @@ export default function ResponsavelDependente() {
           </ul>
         )}
       </div>
+
+      {pixAtivo && (
+        <PixModal
+          recarga={pixAtivo}
+          onClose={() => setPixAtivo(null)}
+          onAprovada={onPixAprovado}
+        />
+      )}
     </div>
   );
 }

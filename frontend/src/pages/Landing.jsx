@@ -313,7 +313,12 @@ const Planos = () => {
       preco: 'R$ 199',
       sufixo: '/mês por cantina',
       desc: 'Para cantinas começando a digitalizar.',
-      features: ['PDV ilimitado', 'Recargas Pix', 'Até 300 alunos ativos', 'Suporte por e-mail'],
+      features: [
+        { label: 'PDV ilimitado' },
+        { label: 'Recarga Pix (Mercado Pago)' },
+        { label: 'Até 300 alunos ativos' },
+        { label: 'Suporte por e-mail' },
+      ],
       cta: 'Começar grátis',
       destaque: false,
     },
@@ -322,7 +327,13 @@ const Planos = () => {
       preco: 'R$ 399',
       sufixo: '/mês por cantina',
       desc: 'Para escolas que querem o ecossistema completo.',
-      features: ['Tudo do Essencial', 'Alunos ilimitados', 'Limites + bloqueios nutricionais', 'Relatórios avançados', 'Suporte prioritário'],
+      features: [
+        { label: 'Tudo do Essencial' },
+        { label: 'Alunos ilimitados' },
+        { label: 'Limites + bloqueios nutricionais' },
+        { label: 'Relatórios avançados + export CSV' },
+        { label: 'Suporte prioritário' },
+      ],
       cta: 'Falar com vendas',
       destaque: true,
     },
@@ -331,7 +342,12 @@ const Planos = () => {
       preco: 'Sob consulta',
       sufixo: '',
       desc: 'Para redes de escolas e franquias.',
-      features: ['Multi-cantina', 'SSO corporativo', 'Integração ERP', 'Gerente de conta dedicado'],
+      features: [
+        { label: 'Painel agregado multi-cantina' },
+        { label: 'Webhooks (integração ERP)' },
+        { label: 'SSO corporativo', tag: 'Roadmap' },
+        { label: 'Gerente de conta dedicado' },
+      ],
       cta: 'Solicitar proposta',
       destaque: false,
     },
@@ -364,11 +380,18 @@ const Planos = () => {
               </div>
               <ul className="mt-6 space-y-2.5">
                 {p.features.map((f) => (
-                  <li key={f} className={`flex items-start gap-2 text-sm ${p.destaque ? 'text-white/90' : 'text-slate-700'}`}>
+                  <li key={f.label} className={`flex items-start gap-2 text-sm ${p.destaque ? 'text-white/90' : 'text-slate-700'}`}>
                     <span className={`mt-0.5 w-5 h-5 rounded-full inline-flex items-center justify-center shrink-0 ${p.destaque ? 'bg-merenda-500 text-white' : 'bg-merenda-100 text-merenda-700'}`}>
                       <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
                     </span>
-                    {f}
+                    <span className="flex-1">
+                      {f.label}
+                      {f.tag && (
+                        <span className={`ml-2 text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded ${p.destaque ? 'bg-white/20 text-white' : 'bg-amber-100 text-amber-800'}`}>
+                          {f.tag}
+                        </span>
+                      )}
+                    </span>
                   </li>
                 ))}
               </ul>

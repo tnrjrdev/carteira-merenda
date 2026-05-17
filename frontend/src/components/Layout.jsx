@@ -95,7 +95,6 @@ export default function Layout() {
 function navLinksFor(role) {
   switch (role) {
     case 'RESPONSAVEL':
-    case 'ADMIN':
       return [{ to: '/responsavel', label: 'Meus filhos', end: true }];
     case 'ESTUDANTE':
       return [{ to: '/estudante', label: 'Minha carteira', end: true }];
@@ -104,6 +103,13 @@ function navLinksFor(role) {
         { to: '/cantina', label: 'Painel', end: true },
         { to: '/cantina/pdv', label: 'PDV' },
         { to: '/cantina/produtos', label: 'Produtos' },
+        { to: '/cantina/relatorios', label: 'Relatórios' },
+        { to: '/cantina/webhooks', label: 'Integrações' },
+      ];
+    case 'ADMIN':
+      return [
+        { to: '/admin/rede', label: 'Painel da rede', end: true },
+        { to: '/responsavel', label: 'Modo responsável' },
       ];
     default:
       return [];
@@ -122,10 +128,10 @@ function roleLabel(role) {
 
 function defaultRoute(role) {
   switch (role) {
-    case 'RESPONSAVEL':
-    case 'ADMIN': return '/responsavel';
+    case 'RESPONSAVEL': return '/responsavel';
     case 'ESTUDANTE': return '/estudante';
     case 'CANTINA': return '/cantina';
+    case 'ADMIN': return '/admin/rede';
     default: return '/';
   }
 }

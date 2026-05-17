@@ -134,6 +134,43 @@ Todos os endpoints (exceto `/api/auth/**`, `/api/cantinas/publicas` e `/h2-conso
 
 ---
 
+## Integração Pix (Mercado Pago)
+
+O backend usa um **adaptador `PagamentoGateway`** com duas implementações:
+
+| Gateway | Quando usar | Cobra? |
+|---|---|---|
+| `simulated` (default) | desenvolvimento, demo | não — gera QR fake e expõe botão "Simular aprovação" |
+| `mercadopago` | produção / sandbox real | sim, em transações reais (taxa por Pix) |
+
+### Ativar Mercado Pago
+
+1. Crie uma conta em [mercadopago.com.br/developers](https://www.mercadopago.com.br/developers/panel/app).
+2. Crie uma aplicação → copie o **Access Token** (use o `TEST-` para sandbox primeiro).
+3. Defina as env vars no Render:
+   ```
+   PAGAMENTO_GATEWAY=mercadopago
+   MERCADOPAGO_ACCESS_TOKEN=APP_USR-...
+   MERCADOPAGO_WEBHOOK_SECRET=<gere uma string secreta>
+   ```
+4. No painel do Mercado Pago → **Notificações → Webhooks**, configure:
+   - URL: `https://merenda-backend.onrender.com/api/webhooks/mercadopago/pix`
+   - Eventos: **Payments**
+   - Cole o mesmo `MERCADOPAGO_WEBHOOK_SECRET` que você definiu no Render.
+
+Sandbox = ilimitado e gratuito. Produção = sem mensalidade, só taxa por transação.
+
+### Endpoints relacionados
+
+```
+POST   /api/carteira/recarga-pix                     → inicia cobrança (responsável)
+GET    /api/carteira/recarga-pix/{id}                → consulta status
+POST   /api/carteira/recarga-pix/{ext}/aprovar-simulado  → DEV: aprova manualmente
+POST   /api/webhooks/mercadopago/pix                 → webhook público do MP
+```
+
+---
+
 ## Deploy
 
 ### Backend → Render
