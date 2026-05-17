@@ -1,12 +1,16 @@
 package com.merenda.controller;
 
 import com.merenda.dto.CarteiraDto;
+import com.merenda.dto.RelatorioDto;
 import com.merenda.exception.BusinessException;
 import com.merenda.model.Role;
 import com.merenda.model.TipoTransacao;
 import com.merenda.model.Usuario;
 import com.merenda.repository.TransacaoRepository;
 import com.merenda.service.CarteiraService;
+import com.merenda.service.RelatorioService;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -26,13 +30,16 @@ public class CantinaPainelController {
     private final SecurityUtils securityUtils;
     private final TransacaoRepository transacaoRepository;
     private final CarteiraService carteiraService;
+    private final RelatorioService relatorioService;
 
     public CantinaPainelController(SecurityUtils securityUtils,
                                    TransacaoRepository transacaoRepository,
-                                   CarteiraService carteiraService) {
+                                   CarteiraService carteiraService,
+                                   RelatorioService relatorioService) {
         this.securityUtils = securityUtils;
         this.transacaoRepository = transacaoRepository;
         this.carteiraService = carteiraService;
+        this.relatorioService = relatorioService;
     }
 
     @GetMapping("/resumo")
@@ -60,5 +67,26 @@ public class CantinaPainelController {
         resp.put("totalMes", totalMes == null ? BigDecimal.ZERO : totalMes);
         resp.put("ultimasVendas", ultimas);
         return ResponseEntity.ok(resp);
+    }
+
+    @GetMapping("/relatorios")
+    public ResponseEntity<RelatorioDto.Resumo> relatorios(@RequestParam(defaultValue = "30") int dias) {
+        Usuario u = securityUtils.currentUser();
+        if (u.getCantina() == null) throw new BusinessException("Operador sem cantina vinculada");
+        int periodo = Math.max(1, Math.min(dias, 365));
+        return ResponseEntity.ok(relatorioService.gerarResumo(u.getCantina().getId(), periodo));
+    }
+
+    @GetMapping(value = "/exportar", produces = "text/csv")
+    public ResponseEntity<String> exportarCsv(@RequestParam(defaultValue = "30") int dias) {
+        Usuario u = securityUtils.currentUser();
+        if (u.getCantina() == null) throw new BusinessException("Operador sem cantina vinculada");
+        int periodo = Math.max(1, Math.min(dias, 365));
+        String csv = relatorioService.exportarCsv(u.getCantina().getId(), periodo);
+        String fileName = "transacoes-" + u.getCantina().getId() + "-" + LocalDate.now() + ".csv";
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + fileName + "\"")
+                .contentType(MediaType.parseMediaType("text/csv; charset=UTF-8"))
+                .body(csv);
     }
 }
