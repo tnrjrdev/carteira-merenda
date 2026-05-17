@@ -44,6 +44,8 @@ public class DataSeeder implements CommandLineRunner {
                 .escola("Colégio Modelo")
                 .cnpj("00.000.000/0001-00")
                 .endereco("Rua das Escolas, 100")
+                .plano(com.merenda.model.Plano.ESSENCIAL)
+                .maxAlunos(300)
                 .ativa(true)
                 .build());
 

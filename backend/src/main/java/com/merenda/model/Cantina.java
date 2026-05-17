@@ -29,6 +29,13 @@ public class Cantina {
 
     private String endereco;
 
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    private Plano plano = Plano.ESSENCIAL;
+
+    @Column(nullable = false)
+    private int maxAlunos = 300;
+
     @Column(nullable = false)
     private boolean ativa = true;
 

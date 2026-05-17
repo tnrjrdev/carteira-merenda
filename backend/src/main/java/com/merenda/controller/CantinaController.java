@@ -2,20 +2,26 @@ package com.merenda.controller;
 
 import com.merenda.exception.NotFoundException;
 import com.merenda.model.Cantina;
+import com.merenda.model.Plano;
 import com.merenda.repository.CantinaRepository;
+import com.merenda.service.PlanoService;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/cantinas")
 public class CantinaController {
 
     private final CantinaRepository cantinaRepository;
+    private final PlanoService planoService;
 
-    public CantinaController(CantinaRepository cantinaRepository) {
+    public CantinaController(CantinaRepository cantinaRepository, PlanoService planoService) {
         this.cantinaRepository = cantinaRepository;
+        this.planoService = planoService;
     }
 
     @GetMapping("/publicas")
@@ -32,5 +38,20 @@ public class CantinaController {
     public ResponseEntity<Cantina> byId(@PathVariable Long id) {
         return ResponseEntity.ok(cantinaRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("Cantina não encontrada")));
+    }
+
+    @GetMapping("/{id}/uso")
+    public ResponseEntity<Map<String, Object>> uso(@PathVariable Long id) {
+        return ResponseEntity.ok(planoService.uso(id));
+    }
+
+    @PutMapping("/{id}/plano")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<Map<String, Object>> atualizarPlano(@PathVariable Long id,
+                                                              @RequestBody Map<String, Object> body) {
+        Plano plano = Plano.valueOf(((String) body.get("plano")).toUpperCase());
+        Integer maxAlunos = body.get("maxAlunos") == null ? null
+                : ((Number) body.get("maxAlunos")).intValue();
+        return ResponseEntity.ok(planoService.atualizarPlano(id, plano, maxAlunos));
     }
 }

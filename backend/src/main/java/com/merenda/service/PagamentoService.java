@@ -5,6 +5,7 @@ import com.merenda.exception.BusinessException;
 import com.merenda.exception.NotFoundException;
 import com.merenda.model.*;
 import com.merenda.repository.*;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -33,6 +34,9 @@ public class PagamentoService {
     private final ProdutoRepository produtoRepository;
     private final TransacaoRepository transacaoRepository;
     private final BloqueioCategoriaRepository bloqueioRepository;
+
+    @Autowired(required = false)
+    private WebhookDispatcher webhookDispatcher;
 
     public PagamentoService(PagamentoTokenRepository tokenRepository,
                             UsuarioRepository usuarioRepository,
@@ -164,6 +168,24 @@ public class PagamentoService {
 
         pt.setUtilizado(true);
         tokenRepository.save(pt);
+
+        if (webhookDispatcher != null) {
+            Map<String, Object> payload = new java.util.HashMap<>();
+            payload.put("transacaoId", tx.getId());
+            payload.put("estudanteId", estudante.getId());
+            payload.put("estudanteNome", estudante.getNome());
+            payload.put("total", total);
+            payload.put("saldoApos", carteira.getSaldo());
+            payload.put("itens", itens.stream().map(it -> {
+                Map<String, Object> mi = new java.util.HashMap<>();
+                mi.put("produto", it.getNomeProduto());
+                mi.put("quantidade", it.getQuantidade());
+                mi.put("precoUnitario", it.getPrecoUnitario());
+                mi.put("subtotal", it.getSubtotal());
+                return mi;
+            }).toList());
+            webhookDispatcher.dispatch(cantina.getId(), WebhookEvento.COMPRA_REALIZADA, payload);
+        }
 
         return new PagamentoDto.CobrancaResponse(tx.getId(), total, carteira.getSaldo(),
                 estudante.getNome(), tx.getCriadaEm());
