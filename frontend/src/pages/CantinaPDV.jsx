@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from 'react';
 import api from '../services/api.js';
 import { useAuth } from '../context/AuthContext.jsx';
 import { brl, extractError } from '../utils/format.js';
+import QrScanner from '../components/QrScanner.jsx';
+import { nfcSupported, lerNfcUmaVez } from '../services/nfc.js';
 
 const categoriaCor = (nome) => {
   const map = {
@@ -29,6 +31,9 @@ const ProdutoCard = ({ produto, onAdd, count }) => (
     {produto.categoriaNome && (
       <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mt-1">{produto.categoriaNome}</div>
     )}
+    {produto.alergenos && (
+      <div className="text-[10px] text-red-600 mt-1" title="Alérgenos">⚠ {produto.alergenos}</div>
+    )}
     <div className="flex items-center justify-between mt-3">
       <span className="text-merenda-600 font-display font-bold text-xl">{brl(produto.preco)}</span>
       <span className="text-[11px] text-slate-400">Est. {produto.estoque}</span>
@@ -46,6 +51,10 @@ export default function CantinaPDV() {
   const [err, setErr] = useState(null);
   const [sucesso, setSucesso] = useState(null);
   const [cobrando, setCobrando] = useState(false);
+  const [scannerAberto, setScannerAberto] = useState(false);
+  const [lendoNfc, setLendoNfc] = useState(false);
+
+  const podeNfc = nfcSupported();
 
   useEffect(() => {
     api.get(`/produtos/cantina/${user.cantinaId}`).then(({ data }) => setProdutos(data));
@@ -64,14 +73,8 @@ export default function CantinaPDV() {
     });
   }, [produtos, filtro, categoria]);
 
-  const total = useMemo(
-    () => carrinho.reduce((acc, it) => acc + it.quantidade * it.preco, 0),
-    [carrinho]
-  );
-  const totalItens = useMemo(
-    () => carrinho.reduce((acc, it) => acc + it.quantidade, 0),
-    [carrinho]
-  );
+  const total = useMemo(() => carrinho.reduce((acc, it) => acc + it.quantidade * it.preco, 0), [carrinho]);
+  const totalItens = useMemo(() => carrinho.reduce((acc, it) => acc + it.quantidade, 0), [carrinho]);
   const countDe = (id) => carrinho.find((i) => i.produtoId === id)?.quantidade || 0;
 
   const adicionar = (produto) => {
@@ -92,11 +95,11 @@ export default function CantinaPDV() {
   const remover = (id) => setCarrinho((c) => c.filter((i) => i.produtoId !== id));
   const limpar = () => { setCarrinho([]); setSucesso(null); setErr(null); };
 
-  const cobrar = async () => {
+  const cobrar = async (tokenOverride) => {
     setErr(null);
     setSucesso(null);
-    const t = token.trim();
-    if (!t) { setErr('Informe o token do aluno (cole ou leia o QR Code)'); return; }
+    const t = (tokenOverride ?? token).trim();
+    if (!t) { setErr('Informe o token do aluno (escaneie ou cole)'); return; }
     if (t.length < 8 || t.length > 64) { setErr('Token inválido'); return; }
     if (carrinho.length === 0) { setErr('Adicione produtos ao carrinho'); return; }
     if (carrinho.length > 50) { setErr('Máximo de 50 itens diferentes por compra'); return; }
@@ -111,7 +114,6 @@ export default function CantinaPDV() {
       setSucesso({ ...data });
       setCarrinho([]);
       setToken('');
-      // refresh estoque
       const fresh = await api.get(`/produtos/cantina/${user.cantinaId}`);
       setProdutos(fresh.data);
     } catch (e) {
@@ -121,12 +123,24 @@ export default function CantinaPDV() {
     }
   };
 
+  const lerNfc = async () => {
+    setErr(null); setSucesso(null);
+    setLendoNfc(true);
+    try {
+      const lido = await lerNfcUmaVez();
+      setToken(lido);
+      await cobrar(lido);
+    } catch (e) {
+      setErr(e?.message || 'Falha ao ler NFC');
+    } finally { setLendoNfc(false); }
+  };
+
   return (
     <div className="space-y-6 animate-fade-in pb-10">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-display font-bold text-slate-900 tracking-tight">PDV — Ponto de Venda</h1>
-          <p className="text-sm text-slate-500 mt-1 font-medium">Selecione produtos e cobre via QR Code do aluno</p>
+          <p className="text-sm text-slate-500 mt-1 font-medium">Selecione produtos · escaneie o QR Code ou aproxime o cartão NFC</p>
         </div>
         {carrinho.length > 0 && (
           <button onClick={limpar} className="btn-secondary text-sm">
@@ -137,7 +151,6 @@ export default function CantinaPDV() {
       </div>
 
       <div className="grid lg:grid-cols-3 gap-6">
-        {/* Catálogo */}
         <div className="lg:col-span-2 card">
           <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-4">
             <div className="relative flex-1">
@@ -169,9 +182,6 @@ export default function CantinaPDV() {
 
           {produtosFiltrados.length === 0 ? (
             <div className="text-center py-12 text-slate-500">
-              <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-3">
-                <svg className="w-8 h-8 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" /></svg>
-              </div>
               <p>Nenhum produto encontrado.</p>
             </div>
           ) : (
@@ -183,7 +193,6 @@ export default function CantinaPDV() {
           )}
         </div>
 
-        {/* Carrinho + Cobrança */}
         <aside className="card sticky top-24 self-start space-y-4">
           <div className="flex items-center justify-between border-b border-slate-100 pb-3">
             <div className="flex items-center gap-2">
@@ -199,7 +208,6 @@ export default function CantinaPDV() {
 
           {carrinho.length === 0 ? (
             <div className="text-center py-8 text-slate-400 text-sm">
-              <svg className="w-12 h-12 mx-auto text-slate-200 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
               Toque nos produtos para adicionar
             </div>
           ) : (
@@ -211,9 +219,7 @@ export default function CantinaPDV() {
                       <div className="text-sm font-semibold text-slate-800 truncate">{i.nome}</div>
                       <div className="text-xs text-slate-500 mt-0.5">{brl(i.preco)} × {i.quantidade}</div>
                     </div>
-                    <button onClick={() => remover(i.produtoId)} className="text-slate-400 hover:text-red-500 transition shrink-0" title="Remover">
-                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-                    </button>
+                    <button onClick={() => remover(i.produtoId)} className="text-slate-400 hover:text-red-500 transition shrink-0" title="Remover">×</button>
                   </div>
                   <div className="flex items-center justify-between mt-2">
                     <div className="flex items-center gap-2">
@@ -235,42 +241,48 @@ export default function CantinaPDV() {
             </div>
           </div>
 
-          <div>
-            <label className="label">Token do aluno (QR Code)</label>
-            <div className="relative">
-              <svg className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm14 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" /></svg>
-              <input
-                className="input pl-10 font-mono text-sm"
-                placeholder="Cole o código do QR aqui"
-                value={token}
-                onChange={(e) => setToken(e.target.value)}
-              />
-            </div>
-            <p className="text-[11px] text-slate-500 mt-1.5">Em produção, leitura via câmera. Aqui peça ao aluno o código sob o QR.</p>
+          <div className="space-y-2">
+            <label className="label">Token do aluno</label>
+            {scannerAberto ? (
+              <div className="space-y-2">
+                <QrScanner onScan={(text) => { setScannerAberto(false); setToken(text); cobrar(text); }} />
+                <button onClick={() => setScannerAberto(false)} className="btn-secondary w-full text-sm">Cancelar leitura</button>
+              </div>
+            ) : (
+              <>
+                <input className="input font-mono text-sm" placeholder="Cole o código aqui ou use a câmera"
+                       value={token} onChange={(e) => setToken(e.target.value)} />
+                <div className="grid grid-cols-2 gap-2">
+                  <button onClick={() => setScannerAberto(true)} className="btn-secondary text-sm">
+                    📷 Escanear QR
+                  </button>
+                  <button onClick={lerNfc} disabled={!podeNfc || lendoNfc}
+                          className="btn-secondary text-sm disabled:opacity-50"
+                          title={podeNfc ? 'Aproxime o cartão NFC' : 'NFC indisponível (use Android + Chrome)'}>
+                    {lendoNfc ? 'Aguardando…' : '📶 Ler NFC'}
+                  </button>
+                </div>
+                {!podeNfc && (
+                  <p className="text-[10px] text-slate-400">NFC só funciona em Android + Chrome com HTTPS.</p>
+                )}
+              </>
+            )}
           </div>
 
           {err && (
-            <div className="bg-red-50 border border-red-200 text-red-600 p-3 rounded-xl text-sm flex items-start gap-2">
-              <svg className="w-4 h-4 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-              {err}
-            </div>
+            <div className="bg-red-50 border border-red-200 text-red-600 p-3 rounded-xl text-sm">{err}</div>
           )}
           {sucesso && (
             <div className="bg-green-50 border border-green-200 text-green-700 p-3 rounded-xl text-sm">
-              <div className="flex items-center gap-2 font-semibold">
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
-                Cobrança aprovada
-              </div>
-              <div className="mt-1 text-xs">
-                Cobrado <b>{brl(sucesso.totalCobrado)}</b> de <b>{sucesso.estudanteNome}</b><br />
-                Saldo restante: <b>{brl(sucesso.saldoApos)}</b>
-              </div>
+              <b>✓ Cobrança aprovada</b><br />
+              {brl(sucesso.totalCobrado)} de <b>{sucesso.estudanteNome}</b><br />
+              Saldo restante: <b>{brl(sucesso.saldoApos)}</b>
             </div>
           )}
 
           <button
             className="btn-primary w-full text-base py-3.5"
-            onClick={cobrar}
+            onClick={() => cobrar()}
             disabled={carrinho.length === 0 || !token || cobrando}
           >
             {cobrando ? 'Processando...' : `Cobrar ${brl(total)}`}

@@ -16,6 +16,11 @@ const categoriaCor = (nome) => {
   return map[nome] || 'from-slate-400 to-slate-500';
 };
 
+const ALERGENOS_COMUNS = [
+  'gluten', 'leite', 'ovo', 'soja', 'amendoim',
+  'castanhas', 'peixe', 'crustaceos', 'lactose',
+];
+
 export default function CantinaProdutos() {
   const { user } = useAuth();
   const [produtos, setProdutos] = useState([]);
@@ -51,6 +56,10 @@ export default function CantinaProdutos() {
       categoriaId: p.categoriaId || '',
       imagemUrl: p.imagemUrl || '',
       disponivel: p.disponivel,
+      calorias: p.calorias ?? '',
+      ingredientes: p.ingredientes || '',
+      alergenos: p.alergenos || '',
+      infoNutricional: p.infoNutricional || '',
     });
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -79,6 +88,7 @@ export default function CantinaProdutos() {
       () => V.max(form.estoque, 100000, 'Estoque'),
     ],
     descricao: [() => V.maxLength(form.descricao, 500, 'Descrição')],
+    calorias: [() => V.number(form.calorias, 'Calorias')],
   });
 
   const submit = async (e) => {
@@ -93,6 +103,10 @@ export default function CantinaProdutos() {
         preco: Number(form.preco),
         estoque: Number(form.estoque || 0),
         categoriaId: form.categoriaId === '' ? null : Number(form.categoriaId),
+        calorias: form.calorias === '' || form.calorias == null ? null : Number(form.calorias),
+        alergenos: form.alergenos || null,
+        ingredientes: form.ingredientes || null,
+        infoNutricional: form.infoNutricional || null,
       };
       if (editando) await api.put(`/produtos/${editando}`, payload);
       else await api.post('/produtos', payload);
@@ -114,6 +128,15 @@ export default function CantinaProdutos() {
     if (errors[k]) setErrors({ ...errors, [k]: null });
   };
 
+  const toggleAlergeno = (al) => {
+    const atuais = (form.alergenos || '').split(',').map((s) => s.trim()).filter(Boolean);
+    const idx = atuais.indexOf(al);
+    if (idx >= 0) atuais.splice(idx, 1); else atuais.push(al);
+    change('alergenos')(atuais.join(','));
+  };
+
+  const tem = (al) => (form.alergenos || '').split(',').map((s) => s.trim()).includes(al);
+
   const produtosFiltrados = produtos.filter((p) =>
     !filtro || p.nome.toLowerCase().includes(filtro.toLowerCase())
   );
@@ -122,14 +145,11 @@ export default function CantinaProdutos() {
     <div className="space-y-6 animate-fade-in pb-10">
       <div>
         <h1 className="text-3xl font-display font-bold text-slate-900 tracking-tight">Cardápio da cantina</h1>
-        <p className="text-sm text-slate-500 mt-1 font-medium">Cadastre e gerencie os produtos vendidos no PDV</p>
+        <p className="text-sm text-slate-500 mt-1 font-medium">Cadastre produtos · marque alérgenos para proteger alunos com alergia</p>
       </div>
 
       {err && (
-        <div className="bg-red-50 border border-red-200 text-red-600 p-3.5 rounded-xl text-sm font-medium flex items-center gap-2">
-          <svg className="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-          {err}
-        </div>
+        <div className="bg-red-50 border border-red-200 text-red-600 p-3.5 rounded-xl text-sm font-medium">{err}</div>
       )}
 
       <form onSubmit={submit} noValidate className="card space-y-4">
@@ -182,7 +202,42 @@ export default function CantinaProdutos() {
               {categorias.map((c) => <option key={c.id} value={c.id}>{c.nome}</option>)}
             </select>
           </Field>
-          <div className="md:col-span-2 flex items-center mt-7">
+          <Field label="Calorias (kcal)" error={errors.calorias} hint="por porção">
+            <input className="input" type="number" min="0" placeholder="0" value={form.calorias}
+                   onChange={(e) => change('calorias')(e.target.value)} />
+          </Field>
+          <div className="md:col-span-3">
+            <Field label="Ingredientes" hint="texto livre">
+              <input className="input" placeholder="Massa, frango, ovo" value={form.ingredientes}
+                     onChange={(e) => change('ingredientes')(e.target.value)} />
+            </Field>
+          </div>
+          <div className="md:col-span-3">
+            <Field label="Alérgenos">
+              <input className="input" placeholder="ex: gluten,leite,ovo" value={form.alergenos}
+                     onChange={(e) => change('alergenos')(e.target.value)} />
+              <div className="flex flex-wrap gap-1 mt-2">
+                {ALERGENOS_COMUNS.map((al) => (
+                  <button key={al} type="button" onClick={() => toggleAlergeno(al)}
+                          className={`px-2.5 py-1 rounded-full text-xs font-medium border transition ${
+                            tem(al)
+                              ? 'bg-red-100 border-red-300 text-red-700'
+                              : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300'
+                          }`}>
+                    {tem(al) ? '✓ ' : '+ '}{al}
+                  </button>
+                ))}
+              </div>
+              <p className="text-[11px] text-slate-500 mt-1">Compras serão bloqueadas se o aluno tiver alergia ao item.</p>
+            </Field>
+          </div>
+          <div className="md:col-span-3">
+            <Field label="Informação nutricional (resumo)" hint="ex: 220 kcal · 5g açúcar · 12g proteína">
+              <input className="input" placeholder="220 kcal · 5g açúcar · 12g proteína" value={form.infoNutricional}
+                     onChange={(e) => change('infoNutricional')(e.target.value)} />
+            </Field>
+          </div>
+          <div className="md:col-span-3 flex items-center mt-2">
             <label className="inline-flex items-center gap-3 cursor-pointer">
               <span className="relative">
                 <input type="checkbox" className="sr-only peer" checked={form.disponivel}
@@ -206,24 +261,16 @@ export default function CantinaProdutos() {
             <h2 className="font-display font-bold text-xl text-slate-900">Cardápio cadastrado</h2>
             <p className="text-xs text-slate-500 mt-0.5">{produtos.length} {produtos.length === 1 ? 'produto' : 'produtos'} no total</p>
           </div>
-          <div className="relative">
-            <svg className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
-            <input className="input pl-10 max-w-xs" placeholder="Buscar produto..." value={filtro}
-                   onChange={(e) => setFiltro(e.target.value)} />
-          </div>
+          <input className="input max-w-xs" placeholder="Buscar produto..." value={filtro}
+                 onChange={(e) => setFiltro(e.target.value)} />
         </div>
 
         {produtosFiltrados.length === 0 ? (
-          <div className="text-center py-12 text-slate-500">
-            <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-3">
-              <svg className="w-8 h-8 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" /></svg>
-            </div>
-            <p className="text-sm">{filtro ? 'Nenhum produto encontrado.' : 'Nenhum produto cadastrado ainda.'}</p>
-          </div>
+          <p className="text-center py-12 text-slate-500 text-sm">{filtro ? 'Nenhum produto encontrado.' : 'Nenhum produto cadastrado ainda.'}</p>
         ) : (
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {produtosFiltrados.map((p) => (
-              <div key={p.id} className="bg-white/80 backdrop-blur border border-slate-200 rounded-2xl p-4 hover:shadow-glass-hover hover:-translate-y-0.5 transition-all duration-200">
+              <div key={p.id} className="bg-white/80 backdrop-blur border border-slate-200 rounded-2xl p-4 hover:shadow-glass-hover hover:-translate-y-0.5 transition-all">
                 <div className={`w-full h-2 rounded-full bg-gradient-to-r ${categoriaCor(p.categoriaNome)} mb-3 opacity-80`}></div>
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0 flex-1">
@@ -237,19 +284,23 @@ export default function CantinaProdutos() {
                     : <span className="badge bg-slate-100 text-slate-600 border border-slate-200">Pausado</span>}
                 </div>
                 {p.descricao && <p className="text-xs text-slate-500 mt-2 line-clamp-2">{p.descricao}</p>}
+                {(p.calorias || p.infoNutricional) && (
+                  <div className="text-[11px] text-slate-600 mt-2 bg-slate-50 rounded-md p-1.5 border border-slate-100">
+                    {p.calorias != null && <b>{p.calorias} kcal</b>}{p.calorias != null && p.infoNutricional && ' · '}{p.infoNutricional}
+                  </div>
+                )}
+                {p.alergenos && (
+                  <div className="text-[11px] text-red-700 mt-2 bg-red-50 rounded-md p-1.5 border border-red-100">
+                    ⚠ alérgenos: {p.alergenos}
+                  </div>
+                )}
                 <div className="flex items-end justify-between mt-3">
                   <span className="font-display font-bold text-2xl text-merenda-600">{brl(p.preco)}</span>
-                  <span className="text-xs text-slate-500 bg-slate-50 px-2 py-1 rounded-md">Estoque: <b className="text-slate-700">{p.estoque}</b></span>
+                  <span className="text-xs text-slate-500 bg-slate-50 px-2 py-1 rounded-md">Est. <b className="text-slate-700">{p.estoque}</b></span>
                 </div>
                 <div className="flex gap-2 mt-4 pt-3 border-t border-slate-100">
-                  <button onClick={() => startEdit(p)} className="flex-1 inline-flex items-center justify-center gap-1.5 text-xs font-semibold text-merenda-700 bg-merenda-50 hover:bg-merenda-100 rounded-lg py-2 transition">
-                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
-                    Editar
-                  </button>
-                  <button onClick={() => remover(p.id)} className="flex-1 inline-flex items-center justify-center gap-1.5 text-xs font-semibold text-red-600 bg-red-50 hover:bg-red-100 rounded-lg py-2 transition">
-                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6M1 7h22M9 7V5a2 2 0 012-2h2a2 2 0 012 2v2" /></svg>
-                    Remover
-                  </button>
+                  <button onClick={() => startEdit(p)} className="flex-1 text-xs font-semibold text-merenda-700 bg-merenda-50 hover:bg-merenda-100 rounded-lg py-2 transition">Editar</button>
+                  <button onClick={() => remover(p.id)} className="flex-1 text-xs font-semibold text-red-600 bg-red-50 hover:bg-red-100 rounded-lg py-2 transition">Remover</button>
                 </div>
               </div>
             ))}
@@ -261,5 +312,8 @@ export default function CantinaProdutos() {
 }
 
 function emptyForm() {
-  return { nome: '', descricao: '', preco: '', estoque: 0, categoriaId: '', imagemUrl: '', disponivel: true };
+  return {
+    nome: '', descricao: '', preco: '', estoque: 0, categoriaId: '', imagemUrl: '', disponivel: true,
+    calorias: '', ingredientes: '', alergenos: '', infoNutricional: '',
+  };
 }
