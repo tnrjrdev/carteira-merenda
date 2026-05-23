@@ -77,6 +77,7 @@ public class RecargaPixService {
                 .solicitadoPor(solicitante)
                 .externalId(cobranca.externalId())
                 .gatewayNome(gateway.nome())
+                .metodo("PIX")
                 .valor(valor)
                 .status(cobranca.status())
                 .qrCodeBase64(cobranca.qrCodeBase64())
@@ -169,7 +170,10 @@ public class RecargaPixService {
         m.put("id", r.getId());
         m.put("externalId", r.getExternalId());
         m.put("gateway", r.getGatewayNome());
+        m.put("metodo", r.getMetodo());
         m.put("valor", r.getValor());
+        m.put("taxaConveniencia", r.getTaxaConveniencia());
+        m.put("valorLiquidoCreditado", r.getValorLiquidoCreditado());
         m.put("status", r.getStatus().name());
         m.put("qrCodeBase64", r.getQrCodeBase64());
         m.put("qrCodeCopiaCola", r.getQrCodeCopiaCola());

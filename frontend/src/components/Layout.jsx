@@ -1,5 +1,6 @@
 import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.jsx';
+import Notificacoes from './Notificacoes.jsx';
 
 export default function Layout() {
   const { user, logout } = useAuth();
@@ -45,14 +46,15 @@ export default function Layout() {
             ))}
           </nav>
 
-          <div className="flex items-center gap-3">
-            <div className="text-right hidden sm:block leading-tight">
+          <div className="flex items-center gap-2">
+            <Notificacoes />
+            <Link to="/conta" className="text-right hidden sm:block leading-tight px-2 hover:bg-slate-100 rounded-lg py-1">
               <div className="text-sm font-semibold text-slate-800">{user?.nome}</div>
               <div className="text-[11px] text-slate-500 uppercase tracking-wider font-medium">{roleLabel(user?.role)}</div>
-            </div>
-            <div className="w-9 h-9 rounded-full bg-gradient-to-br from-merenda-400 to-merenda-600 text-white flex items-center justify-center text-sm font-bold shadow-md">
+            </Link>
+            <Link to="/conta" className="w-9 h-9 rounded-full bg-gradient-to-br from-merenda-400 to-merenda-600 text-white flex items-center justify-center text-sm font-bold shadow-md" title="Minha conta">
               {(user?.nome || '?').charAt(0).toUpperCase()}
-            </div>
+            </Link>
             <button onClick={handleLogout} className="btn-secondary text-sm hidden sm:inline-flex" title="Sair">
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
               Sair
@@ -86,7 +88,8 @@ export default function Layout() {
       </main>
 
       <footer className="text-center text-xs text-slate-400 py-6 border-t border-slate-200/60 bg-white/40">
-        © {new Date().getFullYear()} Merenda · Carteira digital escolar
+        © {new Date().getFullYear()} Merenda · Carteira digital escolar ·
+        <Link to="/politica-privacidade" className="ml-2 hover:text-merenda-600">Política de privacidade</Link>
       </footer>
     </div>
   );
@@ -97,13 +100,20 @@ function navLinksFor(role) {
     case 'RESPONSAVEL':
       return [{ to: '/responsavel', label: 'Meus filhos', end: true }];
     case 'ESTUDANTE':
-      return [{ to: '/estudante', label: 'Minha carteira', end: true }];
+      return [
+        { to: '/estudante', label: 'Carteira', end: true },
+        { to: '/estudante/pedidos', label: 'Pedidos' },
+        { to: '/estudante/conquistas', label: 'Conquistas' },
+      ];
     case 'CANTINA':
       return [
         { to: '/cantina', label: 'Painel', end: true },
         { to: '/cantina/pdv', label: 'PDV' },
+        { to: '/cantina/pedidos', label: 'Pedidos' },
         { to: '/cantina/produtos', label: 'Produtos' },
         { to: '/cantina/relatorios', label: 'Relatórios' },
+        { to: '/cantina/caixa', label: 'Caixa' },
+        { to: '/cantina/faturas', label: 'Faturas SaaS' },
         { to: '/cantina/webhooks', label: 'Integrações' },
       ];
     case 'ADMIN':

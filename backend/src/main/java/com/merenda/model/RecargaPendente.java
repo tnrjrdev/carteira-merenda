@@ -37,8 +37,17 @@ public class RecargaPendente {
     @Column(nullable = false, length = 30)
     private String gatewayNome;
 
+    @Column(length = 10)
+    private String metodo;
+
     @Column(nullable = false, precision = 14, scale = 2)
     private BigDecimal valor;
+
+    @Column(precision = 14, scale = 2)
+    private BigDecimal taxaConveniencia;
+
+    @Column(precision = 14, scale = 2)
+    private BigDecimal valorLiquidoCreditado;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
@@ -70,5 +79,6 @@ public class RecargaPendente {
     public void prePersist() {
         if (this.criadaEm == null) this.criadaEm = LocalDateTime.now();
         if (this.status == null) this.status = StatusPagamento.PENDENTE;
+        if (this.metodo == null) this.metodo = "PIX";
     }
 }
