@@ -6,6 +6,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Entity
@@ -35,6 +36,14 @@ public class Cantina {
 
     @Column(nullable = false)
     private int maxAlunos = 300;
+
+    @Column(precision = 5, scale = 4)
+    private BigDecimal taxaPlataforma;
+
+    @Column(precision = 14, scale = 2)
+    private BigDecimal mensalidadeSaas;
+
+    private Integer diaCobrancaMensalidade;
 
     @Column(nullable = false)
     private boolean ativa = true;

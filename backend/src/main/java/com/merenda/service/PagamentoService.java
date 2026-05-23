@@ -10,6 +10,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.security.SecureRandom;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
@@ -17,15 +18,19 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.temporal.TemporalAdjusters;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Base64;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 @Service
 public class PagamentoService {
 
     private static final int TOKEN_TTL_SECONDS = 90;
+    private static final int NFC_TOKEN_TTL_SECONDS = 30;
     private static final SecureRandom RANDOM = new SecureRandom();
 
     private final PagamentoTokenRepository tokenRepository;
@@ -37,6 +42,12 @@ public class PagamentoService {
 
     @Autowired(required = false)
     private WebhookDispatcher webhookDispatcher;
+
+    @Autowired(required = false)
+    private NotificacaoService notificacaoService;
+
+    @Autowired(required = false)
+    private GamificacaoService gamificacaoService;
 
     public PagamentoService(PagamentoTokenRepository tokenRepository,
                             UsuarioRepository usuarioRepository,
@@ -54,6 +65,15 @@ public class PagamentoService {
 
     @Transactional
     public PagamentoDto.TokenResponse gerarToken(Usuario estudante) {
+        return gerarTokenInterno(estudante, "QR", TOKEN_TTL_SECONDS);
+    }
+
+    @Transactional
+    public PagamentoDto.TokenResponse gerarTokenNfc(Usuario estudante) {
+        return gerarTokenInterno(estudante, "NFC", NFC_TOKEN_TTL_SECONDS);
+    }
+
+    private PagamentoDto.TokenResponse gerarTokenInterno(Usuario estudante, String canal, int ttlSeconds) {
         if (estudante.getRole() != Role.ESTUDANTE) {
             throw new BusinessException("Somente estudantes podem gerar tokens de pagamento");
         }
@@ -64,7 +84,8 @@ public class PagamentoService {
         PagamentoToken pt = PagamentoToken.builder()
                 .token(tokenValue)
                 .estudante(estudante)
-                .expiraEm(LocalDateTime.now().plusSeconds(TOKEN_TTL_SECONDS))
+                .canal(canal)
+                .expiraEm(LocalDateTime.now().plusSeconds(ttlSeconds))
                 .utilizado(false)
                 .build();
         tokenRepository.save(pt);
@@ -99,6 +120,8 @@ public class PagamentoService {
                 .map(b -> b.getCategoria().getId())
                 .toList();
 
+        Set<String> alergiasEstudante = parseCsvLower(estudante.getAlergias());
+
         Map<Long, Integer> agregadas = new HashMap<>();
         for (PagamentoDto.ItemRequest it : req.itens()) {
             agregadas.merge(it.produtoId(), it.quantidade(), Integer::sum);
@@ -123,6 +146,12 @@ public class PagamentoService {
                 throw new BusinessException("O responsável bloqueou a categoria \""
                         + p.getCategoria().getNome() + "\" - não é possível comprar " + p.getNome());
             }
+            String alergenoConflitante = primeiraInterseccao(alergiasEstudante, parseCsvLower(p.getAlergenos()));
+            if (alergenoConflitante != null) {
+                throw new BusinessException("ALERGIA: " + p.getNome()
+                        + " contém \"" + alergenoConflitante + "\", registrado nas alergias do aluno");
+            }
+
             BigDecimal subtotal = p.getPreco().multiply(BigDecimal.valueOf(e.getValue()));
             total = total.add(subtotal);
 
@@ -155,7 +184,7 @@ public class PagamentoService {
                 .tipo(TipoTransacao.COMPRA)
                 .valor(total)
                 .saldoApos(carteira.getSaldo())
-                .descricao("Compra em " + cantina.getNome())
+                .descricao("Compra em " + cantina.getNome() + " · " + pt.getCanal())
                 .cantina(cantina)
                 .build();
         transacaoRepository.save(tx);
@@ -166,18 +195,39 @@ public class PagamentoService {
         tx.setItens(itens);
         transacaoRepository.save(tx);
 
+        // Registro da taxa de plataforma (apenas marcação contábil, não mexe no saldo do estudante).
+        BigDecimal taxaPct = cantina.getTaxaPlataforma();
+        if (taxaPct == null) {
+            Plano pl = cantina.getPlano() == null ? Plano.ESSENCIAL : cantina.getPlano();
+            taxaPct = pl.getTaxaPlataforma();
+        }
+        if (taxaPct != null && taxaPct.compareTo(BigDecimal.ZERO) > 0) {
+            BigDecimal taxa = total.multiply(taxaPct).setScale(2, RoundingMode.HALF_UP);
+            Transacao taxaTx = Transacao.builder()
+                    .carteira(carteira)
+                    .tipo(TipoTransacao.TAXA_PLATAFORMA)
+                    .valor(taxa)
+                    .saldoApos(carteira.getSaldo())
+                    .descricao("Taxa plataforma " + taxaPct.multiply(BigDecimal.valueOf(100))
+                            .setScale(2, RoundingMode.HALF_UP) + "% sobre compra #" + tx.getId())
+                    .cantina(cantina)
+                    .build();
+            transacaoRepository.save(taxaTx);
+        }
+
         pt.setUtilizado(true);
         tokenRepository.save(pt);
 
         if (webhookDispatcher != null) {
-            Map<String, Object> payload = new java.util.HashMap<>();
+            Map<String, Object> payload = new HashMap<>();
             payload.put("transacaoId", tx.getId());
             payload.put("estudanteId", estudante.getId());
             payload.put("estudanteNome", estudante.getNome());
             payload.put("total", total);
             payload.put("saldoApos", carteira.getSaldo());
+            payload.put("canal", pt.getCanal());
             payload.put("itens", itens.stream().map(it -> {
-                Map<String, Object> mi = new java.util.HashMap<>();
+                Map<String, Object> mi = new HashMap<>();
                 mi.put("produto", it.getNomeProduto());
                 mi.put("quantidade", it.getQuantidade());
                 mi.put("precoUnitario", it.getPrecoUnitario());
@@ -185,6 +235,21 @@ public class PagamentoService {
                 return mi;
             }).toList());
             webhookDispatcher.dispatch(cantina.getId(), WebhookEvento.COMPRA_REALIZADA, payload);
+        }
+
+        // Notificação ao responsável (extrato em tempo real)
+        if (notificacaoService != null && estudante.getResponsavel() != null) {
+            notificacaoService.criar(estudante.getResponsavel(), "COMPRA",
+                    "Compra de " + estudante.getNome(),
+                    "R$ " + total + " em " + cantina.getNome() + " · saldo R$ " + carteira.getSaldo(),
+                    "/responsavel/dependente/" + estudante.getId());
+        }
+        if (gamificacaoService != null) {
+            try {
+                gamificacaoService.avaliarAposCompra(estudante, carteira.getId(), total, itens);
+            } catch (Exception ex) {
+                // gamificação nunca quebra o fluxo de cobrança
+            }
         }
 
         return new PagamentoDto.CobrancaResponse(tx.getId(), total, carteira.getSaldo(),
@@ -214,5 +279,27 @@ public class PagamentoService {
                         + carteira.getLimiteSemanal() + " | Gasto semana: R$ " + gastoSemana);
             }
         }
+    }
+
+    private Set<String> parseCsvLower(String csv) {
+        if (csv == null || csv.isBlank()) return Set.of();
+        Set<String> out = new HashSet<>();
+        for (String part : csv.split(",")) {
+            String t = part.trim().toLowerCase();
+            if (!t.isEmpty()) out.add(t);
+        }
+        return out;
+    }
+
+    private String primeiraInterseccao(Set<String> a, Set<String> b) {
+        if (a.isEmpty() || b.isEmpty()) return null;
+        for (String s : a) {
+            for (String t : b) {
+                if (s.equals(t) || s.contains(t) || t.contains(s)) {
+                    return s;
+                }
+            }
+        }
+        return null;
     }
 }
