@@ -30,6 +30,13 @@ public class MeController {
         body.put("cantinaId", u.getCantina() == null ? null : u.getCantina().getId());
         body.put("cantinaNome", u.getCantina() == null ? null : u.getCantina().getNome());
         body.put("responsavelId", u.getResponsavel() == null ? null : u.getResponsavel().getId());
+        body.put("dataNascimento", u.getDataNascimento());
+        body.put("alergias", u.getAlergias());
+        body.put("cpf", u.getCpf());
+        body.put("telefone", u.getTelefone());
+        body.put("consentimentoLgpd", u.isConsentimentoLgpd());
+        body.put("consentimentoLgpdEm", u.getConsentimentoLgpdEm());
+        body.put("consentimentoVersao", u.getConsentimentoVersao());
         return ResponseEntity.ok(body);
     }
 }

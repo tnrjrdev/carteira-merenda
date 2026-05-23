@@ -6,6 +6,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Entity
@@ -43,6 +44,19 @@ public class Usuario {
 
     @Column(nullable = false, updatable = false)
     private LocalDateTime criadoEm;
+
+    private LocalDate dataNascimento;
+
+    @Column(length = 500)
+    private String alergias;
+
+    @Column(nullable = false)
+    private boolean consentimentoLgpd = false;
+
+    private LocalDateTime consentimentoLgpdEm;
+
+    @Column(length = 20)
+    private String consentimentoVersao;
 
     @com.fasterxml.jackson.annotation.JsonIgnore
     @ManyToOne(fetch = FetchType.EAGER)

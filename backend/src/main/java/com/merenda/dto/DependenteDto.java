@@ -7,6 +7,7 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 
 public class DependenteDto {
 
@@ -22,12 +23,19 @@ public class DependenteDto {
 
             @NotBlank(message = "Senha é obrigatória")
             @Size(min = 6, max = 60, message = "Senha deve ter entre 6 e 60 caracteres")
-            String senha) {}
+            String senha,
+
+            LocalDate dataNascimento,
+
+            @Size(max = 500, message = "Lista de alergias muito longa")
+            String alergias) {}
 
     public record Resumo(
             Long id,
             String nome,
             String email,
+            LocalDate dataNascimento,
+            String alergias,
             BigDecimal saldo,
             BigDecimal limiteDiario,
             BigDecimal limiteSemanal,
@@ -42,4 +50,10 @@ public class DependenteDto {
             @DecimalMin(value = "0.00", inclusive = true, message = "Limite semanal não pode ser negativo")
             @Digits(integer = 12, fraction = 2, message = "Limite semanal inválido")
             BigDecimal limiteSemanal) {}
+
+    public record AtualizarPerfil(
+            LocalDate dataNascimento,
+
+            @Size(max = 500, message = "Lista de alergias muito longa")
+            String alergias) {}
 }

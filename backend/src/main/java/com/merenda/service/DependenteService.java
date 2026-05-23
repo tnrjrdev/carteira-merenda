@@ -54,6 +54,11 @@ public class DependenteService {
                 .senhaHash(passwordEncoder.encode(req.senha()))
                 .role(Role.ESTUDANTE)
                 .responsavel(responsavel)
+                .dataNascimento(req.dataNascimento())
+                .alergias(req.alergias())
+                .consentimentoLgpd(true)
+                .consentimentoLgpdEm(LocalDateTime.now())
+                .consentimentoVersao(responsavel.getConsentimentoVersao())
                 .ativo(true)
                 .build();
         usuarioRepository.save(estudante);
@@ -92,6 +97,22 @@ public class DependenteService {
         return toResumo(estudante, c);
     }
 
+    @Transactional
+    public DependenteDto.Resumo atualizarPerfil(Long responsavelId, Long estudanteId,
+                                                DependenteDto.AtualizarPerfil req) {
+        Usuario estudante = usuarioRepository.findById(estudanteId)
+                .orElseThrow(() -> new NotFoundException("Estudante não encontrado"));
+        if (estudante.getResponsavel() == null || !estudante.getResponsavel().getId().equals(responsavelId)) {
+            throw new BusinessException("Estudante não pertence a este responsável");
+        }
+        estudante.setDataNascimento(req.dataNascimento());
+        estudante.setAlergias(req.alergias() == null || req.alergias().isBlank() ? null : req.alergias().trim());
+        usuarioRepository.save(estudante);
+        Carteira c = carteiraRepository.findByEstudanteId(estudanteId)
+                .orElseThrow(() -> new NotFoundException("Carteira não encontrada"));
+        return toResumo(estudante, c);
+    }
+
     private DependenteDto.Resumo toResumo(Usuario est, Carteira c) {
         LocalDateTime inicioDia = LocalDate.now().atStartOfDay();
         LocalDateTime inicioSemana = LocalDate.now()
@@ -103,6 +124,8 @@ public class DependenteService {
                 est.getId(),
                 est.getNome(),
                 est.getEmail(),
+                est.getDataNascimento(),
+                est.getAlergias(),
                 c.getSaldo(),
                 c.getLimiteDiario(),
                 c.getLimiteSemanal(),

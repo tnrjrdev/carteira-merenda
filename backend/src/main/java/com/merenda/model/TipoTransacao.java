@@ -4,5 +4,9 @@ public enum TipoTransacao {
     RECARGA,
     COMPRA,
     ESTORNO,
-    AJUSTE
+    AJUSTE,
+    MESADA,
+    REPASSE,
+    TAXA_PLATAFORMA,
+    CASHBACK
 }

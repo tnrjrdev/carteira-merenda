@@ -40,4 +40,12 @@ public class DependenteController {
         Long responsavelId = securityUtils.currentUser().getId();
         return ResponseEntity.ok(dependenteService.atualizarLimites(responsavelId, estudanteId, req));
     }
+
+    @PutMapping("/{estudanteId}/perfil")
+    public ResponseEntity<DependenteDto.Resumo> atualizarPerfil(
+            @PathVariable Long estudanteId,
+            @RequestBody DependenteDto.AtualizarPerfil req) {
+        Long responsavelId = securityUtils.currentUser().getId();
+        return ResponseEntity.ok(dependenteService.atualizarPerfil(responsavelId, estudanteId, req));
+    }
 }

@@ -36,7 +36,20 @@ public class ProdutoDto {
             @Size(max = 500, message = "URL da imagem muito longa")
             String imagemUrl,
 
-            Boolean disponivel) {}
+            Boolean disponivel,
+
+            @PositiveOrZero(message = "Calorias não pode ser negativo")
+            @Max(value = 5000, message = "Calorias acima do esperado")
+            Integer calorias,
+
+            @Size(max = 500, message = "Ingredientes muito longo")
+            String ingredientes,
+
+            @Size(max = 300, message = "Alérgenos muito longo")
+            String alergenos,
+
+            @Size(max = 200, message = "Info nutricional muito longa")
+            String infoNutricional) {}
 
     public record Response(
             Long id,
@@ -50,5 +63,9 @@ public class ProdutoDto {
             boolean categoriaSaudavel,
             Long cantinaId,
             String cantinaNome,
-            boolean disponivel) {}
+            boolean disponivel,
+            Integer calorias,
+            String ingredientes,
+            String alergenos,
+            String infoNutricional) {}
 }

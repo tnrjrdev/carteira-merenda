@@ -27,6 +27,9 @@ public class PagamentoToken {
     @JoinColumn(name = "estudante_id", nullable = false)
     private Usuario estudante;
 
+    @Column(nullable = false, length = 10)
+    private String canal = "QR";
+
     @Column(nullable = false, updatable = false)
     private LocalDateTime criadoEm;
 
@@ -39,5 +42,6 @@ public class PagamentoToken {
     @PrePersist
     public void prePersist() {
         this.criadoEm = LocalDateTime.now();
+        if (this.canal == null) this.canal = "QR";
     }
 }

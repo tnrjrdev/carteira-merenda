@@ -4,9 +4,10 @@ import { useAuth } from '../context/AuthContext.jsx';
 import Field from '../components/Field.jsx';
 import { extractError } from '../utils/format.js';
 import * as V from '../utils/validation.js';
+import { GoogleLogin } from '@react-oauth/google';
 
 export default function Login() {
-  const { login, loading } = useAuth();
+  const { login, googleLogin, loading } = useAuth();
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [senha, setSenha] = useState('');
@@ -30,6 +31,20 @@ export default function Login() {
     } catch (e) {
       setErr(extractError(e));
     }
+  };
+
+  const handleGoogleSuccess = async (credentialResponse) => {
+    setErr(null);
+    try {
+      const data = await googleLogin(credentialResponse.credential);
+      navigate(routeFor(data.role));
+    } catch (e) {
+      setErr(extractError(e));
+    }
+  };
+
+  const handleGoogleError = () => {
+    setErr('Ocorreu um erro ao tentar fazer login com o Google.');
   };
 
   return (
@@ -107,6 +122,23 @@ export default function Login() {
             ) : 'Entrar'}
           </button>
           
+          <div className="relative flex py-4 items-center">
+            <div className="flex-grow border-t border-slate-200"></div>
+            <span className="flex-shrink-0 mx-4 text-slate-400 text-sm">Ou continue com</span>
+            <div className="flex-grow border-t border-slate-200"></div>
+          </div>
+          
+          <div className="flex justify-center">
+            <GoogleLogin
+              onSuccess={handleGoogleSuccess}
+              onError={handleGoogleError}
+              useOneTap
+              shape="rectangular"
+              theme="outline"
+              size="large"
+            />
+          </div>
+
           <div className="pt-4 text-sm text-slate-600 text-center border-t border-slate-200/50">
             Não tem uma conta? <Link to="/register" className="text-merenda-600 font-semibold hover:text-merenda-700 hover:underline transition-colors">Cadastre-se</Link>
           </div>

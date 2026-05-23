@@ -46,6 +46,17 @@ public class Produto {
     @Column(nullable = false)
     private boolean disponivel = true;
 
+    private Integer calorias;
+
+    @Column(length = 500)
+    private String ingredientes;
+
+    @Column(length = 300)
+    private String alergenos;
+
+    @Column(length = 200)
+    private String infoNutricional;
+
     @Column(nullable = false, updatable = false)
     private LocalDateTime criadoEm;
 

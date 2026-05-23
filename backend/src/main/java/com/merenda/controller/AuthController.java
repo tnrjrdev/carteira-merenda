@@ -1,6 +1,7 @@
 package com.merenda.controller;
 
 import com.merenda.dto.AuthDto;
+import com.merenda.dto.GoogleLoginRequest;
 import com.merenda.service.AuthService;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
@@ -24,5 +25,15 @@ public class AuthController {
     @PostMapping("/register")
     public ResponseEntity<AuthDto.AuthResponse> register(@RequestBody @Valid AuthDto.RegisterRequest req) {
         return ResponseEntity.ok(authService.register(req));
+    }
+
+    @PostMapping("/google-login")
+    public ResponseEntity<AuthDto.AuthResponse> googleLogin(@RequestBody @Valid GoogleLoginRequest req) {
+        return ResponseEntity.ok(authService.googleLogin(req));
+    }
+
+    @PostMapping("/google-register")
+    public ResponseEntity<AuthDto.AuthResponse> googleRegister(@RequestBody @Valid GoogleLoginRequest req) {
+        return ResponseEntity.ok(authService.googleRegister(req));
     }
 }

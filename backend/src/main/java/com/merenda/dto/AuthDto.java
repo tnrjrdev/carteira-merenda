@@ -1,10 +1,13 @@
 package com.merenda.dto;
 
 import com.merenda.model.Role;
+import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
+
+import java.time.LocalDate;
 
 public class AuthDto {
 
@@ -40,7 +43,14 @@ public class AuthDto {
 
             Role role,
 
-            Long cantinaId) {}
+            Long cantinaId,
+
+            LocalDate dataNascimento,
+
+            @AssertTrue(message = "É necessário aceitar a política de privacidade (LGPD)")
+            Boolean aceitaLgpd,
+
+            String politicaVersao) {}
 
     public record AuthResponse(
             String token,

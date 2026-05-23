@@ -11,6 +11,12 @@ import com.merenda.repository.CantinaRepository;
 import com.merenda.repository.CarteiraRepository;
 import com.merenda.repository.UsuarioRepository;
 import com.merenda.security.JwtService;
+import com.merenda.dto.GoogleLoginRequest;
+import com.google.api.client.googleapis.auth.oauth2.GoogleIdToken;
+import com.google.api.client.googleapis.auth.oauth2.GoogleIdTokenVerifier;
+import com.google.api.client.http.javanet.NetHttpTransport;
+import com.google.api.client.json.gson.GsonFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -18,7 +24,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.util.Collections;
 import java.util.Map;
+import java.util.UUID;
 
 @Service
 public class AuthService {
@@ -29,6 +38,12 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final AuthenticationManager authenticationManager;
     private final JwtService jwtService;
+
+    @Value("${google.client.id}")
+    private String googleClientId;
+
+    @Value("${merenda.lgpd.politica-versao:2026-01-01}")
+    private String politicaVersaoAtual;
 
     public AuthService(UsuarioRepository usuarioRepository,
                        CarteiraRepository carteiraRepository,
@@ -71,6 +86,10 @@ public class AuthService {
                 .telefone(req.telefone())
                 .role(role)
                 .cantina(cantina)
+                .dataNascimento(req.dataNascimento())
+                .consentimentoLgpd(true)
+                .consentimentoLgpdEm(LocalDateTime.now())
+                .consentimentoVersao(req.politicaVersao() == null ? politicaVersaoAtual : req.politicaVersao())
                 .ativo(true)
                 .build();
 
@@ -84,6 +103,90 @@ public class AuthService {
         Usuario u = usuarioRepository.findByEmail(req.email().toLowerCase().trim())
                 .orElseThrow(() -> new NotFoundException("Usuário não encontrado"));
         return buildAuthResponse(u);
+    }
+
+    @Transactional
+    public AuthDto.AuthResponse googleLogin(GoogleLoginRequest req) {
+        try {
+            GoogleIdTokenVerifier verifier = new GoogleIdTokenVerifier.Builder(new NetHttpTransport(), new GsonFactory())
+                    .setAudience(Collections.singletonList(googleClientId))
+                    .build();
+
+            GoogleIdToken idToken = verifier.verify(req.idToken());
+            if (idToken != null) {
+                String email = idToken.getPayload().getEmail();
+
+                Usuario u = usuarioRepository.findByEmail(email)
+                        .orElseThrow(() -> new NotFoundException("Usuário não encontrado. Por favor, cadastre-se primeiro."));
+
+                return buildAuthResponse(u);
+            } else {
+                throw new BusinessException("Token do Google inválido");
+            }
+        } catch (NotFoundException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new BusinessException("Erro ao validar token do Google: " + e.getMessage());
+        }
+    }
+
+    @Transactional
+    public AuthDto.AuthResponse googleRegister(GoogleLoginRequest req) {
+        Role role = req.role() == null ? Role.RESPONSAVEL : req.role();
+        if (role == Role.ESTUDANTE) {
+            throw new BusinessException("Cadastro de estudante é feito pelo responsável (endpoint /api/dependentes)");
+        }
+
+        Cantina cantina = null;
+        if (role == Role.CANTINA) {
+            if (req.cantinaId() == null) {
+                throw new BusinessException("Selecione uma cantina para vincular o operador");
+            }
+            cantina = cantinaRepository.findById(req.cantinaId())
+                    .orElseThrow(() -> new NotFoundException("Cantina não encontrada"));
+        }
+
+        if (req.aceitaLgpd() == null || !req.aceitaLgpd()) {
+            throw new BusinessException("É necessário aceitar a política de privacidade (LGPD)");
+        }
+
+        try {
+            GoogleIdTokenVerifier verifier = new GoogleIdTokenVerifier.Builder(new NetHttpTransport(), new GsonFactory())
+                    .setAudience(Collections.singletonList(googleClientId))
+                    .build();
+
+            GoogleIdToken idToken = verifier.verify(req.idToken());
+            if (idToken != null) {
+                GoogleIdToken.Payload payload = idToken.getPayload();
+                String email = payload.getEmail();
+                String name = (String) payload.get("name");
+
+                if (usuarioRepository.existsByEmail(email)) {
+                    throw new BusinessException("Já existe conta para este email. Por favor, faça login.");
+                }
+
+                Usuario novo = Usuario.builder()
+                        .nome(name != null ? name : "Usuário Google")
+                        .email(email)
+                        .senhaHash(passwordEncoder.encode(UUID.randomUUID().toString()))
+                        .role(role)
+                        .cantina(cantina)
+                        .consentimentoLgpd(true)
+                        .consentimentoLgpdEm(LocalDateTime.now())
+                        .consentimentoVersao(req.politicaVersao() == null ? politicaVersaoAtual : req.politicaVersao())
+                        .ativo(true)
+                        .build();
+                usuarioRepository.save(novo);
+
+                return buildAuthResponse(novo);
+            } else {
+                throw new BusinessException("Token do Google inválido");
+            }
+        } catch (BusinessException | NotFoundException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new BusinessException("Erro ao registrar com Google: " + e.getMessage());
+        }
     }
 
     public AuthDto.AuthResponse buildAuthResponse(Usuario u) {

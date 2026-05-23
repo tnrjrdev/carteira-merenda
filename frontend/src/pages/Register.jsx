@@ -3,22 +3,28 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.jsx';
 import api from '../services/api.js';
 import Field from '../components/Field.jsx';
+import LgpdCheckbox from '../components/LgpdCheckbox.jsx';
 import { extractError } from '../utils/format.js';
 import * as V from '../utils/validation.js';
+import { GoogleLogin } from '@react-oauth/google';
 
 export default function Register() {
-  const { register, loading } = useAuth();
+  const { register, googleRegister, loading } = useAuth();
   const navigate = useNavigate();
   const [form, setForm] = useState({
     nome: '', email: '', senha: '', telefone: '', cpf: '',
     role: 'RESPONSAVEL', cantinaId: '',
+    dataNascimento: '',
+    aceitaLgpd: false,
   });
   const [cantinas, setCantinas] = useState([]);
+  const [politicaVersao, setPoliticaVersao] = useState('');
   const [err, setErr] = useState(null);
   const [errors, setErrors] = useState({});
 
   useEffect(() => {
     api.get('/cantinas/publicas').then(({ data }) => setCantinas(data)).catch(() => {});
+    api.get('/lgpd/politica').then(({ data }) => setPoliticaVersao(data?.versao || '')).catch(() => {});
   }, []);
 
   const change = (k) => (e) => {
@@ -46,6 +52,7 @@ export default function Register() {
     cantinaId: [
       () => form.role === 'CANTINA' ? V.required(form.cantinaId, 'Cantina') : null,
     ],
+    aceitaLgpd: [() => form.aceitaLgpd ? null : 'É necessário aceitar a política de privacidade'],
   });
 
   const submit = async (e) => {
@@ -55,7 +62,11 @@ export default function Register() {
     setErrors(errs);
     if (Object.keys(errs).length > 0) return;
     try {
-      const payload = { ...form };
+      const payload = {
+        ...form,
+        dataNascimento: form.dataNascimento || null,
+        politicaVersao: politicaVersao || null,
+      };
       if (payload.role !== 'CANTINA') delete payload.cantinaId;
       else payload.cantinaId = Number(payload.cantinaId);
       const data = await register(payload);
@@ -65,9 +76,36 @@ export default function Register() {
     }
   };
 
+  const handleGoogleSuccess = async (credentialResponse) => {
+    setErr(null);
+    if (!form.aceitaLgpd) {
+      setErrors({ ...errors, aceitaLgpd: 'Aceite a política antes de continuar com o Google' });
+      return;
+    }
+    if (form.role === 'CANTINA' && !form.cantinaId) {
+      setErrors({ ...errors, cantinaId: 'Selecione uma cantina antes de continuar com o Google' });
+      return;
+    }
+    try {
+      const extras = {
+        role: form.role,
+        cantinaId: form.role === 'CANTINA' ? Number(form.cantinaId) : null,
+        aceitaLgpd: true,
+        politicaVersao: politicaVersao || null,
+      };
+      const data = await googleRegister(credentialResponse.credential, extras);
+      navigate(routeFor(data.role));
+    } catch (e) {
+      setErr(extractError(e));
+    }
+  };
+
+  const handleGoogleError = () => {
+    setErr('Ocorreu um erro ao tentar registrar com o Google.');
+  };
+
   return (
     <div className="relative min-h-screen flex items-center justify-center px-4 py-10 overflow-hidden bg-slate-50 font-sans">
-      {/* Animated Background blobs */}
       <div className="fixed top-0 left-0 w-full h-full overflow-hidden z-0 pointer-events-none">
         <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] rounded-full bg-merenda-400/30 blur-3xl animate-blob"></div>
         <div className="absolute top-[20%] right-[-10%] w-[50%] h-[50%] rounded-full bg-brand-accent/20 blur-3xl animate-blob" style={{ animationDelay: '2s' }}></div>
@@ -108,31 +146,38 @@ export default function Register() {
                 <input className="input" placeholder="Maria da Silva" value={form.nome} onChange={change('nome')} />
               </Field>
             </div>
-            
+
             <div className="sm:col-span-2">
               <Field label="E-mail" error={errors.email}>
                 <input className="input" type="email" placeholder="maria@email.com" value={form.email} onChange={change('email')} />
               </Field>
             </div>
-            
+
             <div className="sm:col-span-2">
               <Field label="Senha" error={errors.senha} hint="Mínimo 6 caracteres">
                 <input className="input" type="password" placeholder="••••••••" value={form.senha} onChange={change('senha')} />
               </Field>
             </div>
-            
+
             <div>
               <Field label="Telefone" error={errors.telefone} hint="Ex: 11999990000">
                 <input className="input" placeholder="11999990000" value={form.telefone} onChange={change('telefone')} />
               </Field>
             </div>
-            
+
             <div>
               <Field label="CPF" error={errors.cpf} hint="Apenas números">
                 <input className="input" placeholder="00000000000" value={form.cpf} onChange={change('cpf')} />
               </Field>
             </div>
-            
+
+            <div className="sm:col-span-2">
+              <Field label="Data de nascimento" hint="Exigida pela LGPD/ECA — para responsáveis ajuda a identificar se a conta é majoritária">
+                <input className="input" type="date" value={form.dataNascimento}
+                       onChange={change('dataNascimento')} />
+              </Field>
+            </div>
+
             {form.role === 'CANTINA' && (
               <div className="sm:col-span-2">
                 <Field label="Cantina" error={errors.cantinaId}>
@@ -146,7 +191,13 @@ export default function Register() {
               </div>
             )}
           </div>
-          
+
+          <LgpdCheckbox
+            checked={form.aceitaLgpd}
+            onChange={(v) => { setForm((s) => ({ ...s, aceitaLgpd: v })); if (errors.aceitaLgpd) setErrors({ ...errors, aceitaLgpd: null }); }}
+            erro={errors.aceitaLgpd}
+          />
+
           <button type="submit" className="btn-primary w-full mt-4 text-lg shadow-glow" disabled={loading}>
             {loading ? (
               <span className="flex items-center justify-center gap-2">
@@ -158,7 +209,24 @@ export default function Register() {
               </span>
             ) : 'Criar conta'}
           </button>
-          
+
+          <div className="relative flex py-4 items-center">
+            <div className="flex-grow border-t border-slate-200"></div>
+            <span className="flex-shrink-0 mx-4 text-slate-400 text-sm">Ou cadastre com</span>
+            <div className="flex-grow border-t border-slate-200"></div>
+          </div>
+
+          <div className="flex justify-center">
+            <GoogleLogin
+              onSuccess={handleGoogleSuccess}
+              onError={handleGoogleError}
+              useOneTap
+              shape="rectangular"
+              theme="outline"
+              size="large"
+            />
+          </div>
+
           <div className="pt-4 text-sm text-slate-600 text-center border-t border-slate-200/50 mt-4">
             Já tem conta? <Link to="/login" className="text-merenda-600 font-semibold hover:text-merenda-700 hover:underline transition-colors">Entrar</Link>
           </div>

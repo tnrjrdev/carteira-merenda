@@ -23,6 +23,11 @@ public class PagamentoController {
         return ResponseEntity.ok(pagamentoService.gerarToken(securityUtils.currentUser()));
     }
 
+    @PostMapping("/token-nfc")
+    public ResponseEntity<PagamentoDto.TokenResponse> gerarTokenNfc() {
+        return ResponseEntity.ok(pagamentoService.gerarTokenNfc(securityUtils.currentUser()));
+    }
+
     @PostMapping("/cobrar")
     public ResponseEntity<PagamentoDto.CobrancaResponse> cobrar(@RequestBody @Valid PagamentoDto.CobrancaRequest req) {
         return ResponseEntity.ok(pagamentoService.cobrar(securityUtils.currentUser(), req));

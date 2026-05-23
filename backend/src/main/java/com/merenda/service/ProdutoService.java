@@ -61,6 +61,10 @@ public class ProdutoService {
                 .categoria(categoria)
                 .cantina(cantina)
                 .disponivel(req.disponivel() == null ? true : req.disponivel())
+                .calorias(req.calorias())
+                .ingredientes(req.ingredientes())
+                .alergenos(normalizarAlergenos(req.alergenos()))
+                .infoNutricional(req.infoNutricional())
                 .build();
         produtoRepository.save(p);
         return toResponse(p);
@@ -85,6 +89,10 @@ public class ProdutoService {
                     .orElseThrow(() -> new NotFoundException("Categoria não encontrada"));
             p.setCategoria(c);
         }
+        p.setCalorias(req.calorias());
+        p.setIngredientes(req.ingredientes());
+        p.setAlergenos(normalizarAlergenos(req.alergenos()));
+        p.setInfoNutricional(req.infoNutricional());
         produtoRepository.save(p);
         return toResponse(p);
     }
@@ -113,6 +121,16 @@ public class ProdutoService {
                 p.getCategoria() != null && p.getCategoria().isSaudavel(),
                 p.getCantina().getId(),
                 p.getCantina().getNome(),
-                p.isDisponivel());
+                p.isDisponivel(),
+                p.getCalorias(),
+                p.getIngredientes(),
+                p.getAlergenos(),
+                p.getInfoNutricional());
+    }
+
+    private String normalizarAlergenos(String csv) {
+        if (csv == null) return null;
+        String trimmed = csv.trim();
+        return trimmed.isEmpty() ? null : trimmed;
     }
 }
