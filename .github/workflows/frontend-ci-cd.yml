@@ -12,7 +12,7 @@ on:
       - 'frontend/**'
 
 env:
-  NODE_VERSION: '18'
+  NODE_VERSION: '20'
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
