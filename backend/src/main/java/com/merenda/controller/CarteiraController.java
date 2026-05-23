@@ -5,6 +5,7 @@ import com.merenda.exception.BusinessException;
 import com.merenda.model.Role;
 import com.merenda.model.Usuario;
 import com.merenda.service.CarteiraService;
+import com.merenda.security.SecurityUtils;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;

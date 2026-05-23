@@ -9,6 +9,7 @@ import com.merenda.model.Usuario;
 import com.merenda.repository.TransacaoRepository;
 import com.merenda.service.CarteiraService;
 import com.merenda.service.RelatorioService;
+import com.merenda.security.SecurityUtils;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;

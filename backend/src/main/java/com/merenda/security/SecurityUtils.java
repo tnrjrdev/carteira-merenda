@@ -1,4 +1,4 @@
-package com.merenda.controller;
+package com.merenda.security;
 
 import com.merenda.exception.NotFoundException;
 import com.merenda.model.Usuario;

@@ -2,6 +2,7 @@ package com.merenda.controller;
 
 import com.merenda.model.BloqueioCategoria;
 import com.merenda.service.BloqueioService;
+import com.merenda.security.SecurityUtils;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 

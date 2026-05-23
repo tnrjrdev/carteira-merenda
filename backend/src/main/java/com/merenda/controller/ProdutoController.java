@@ -2,6 +2,7 @@ package com.merenda.controller;
 
 import com.merenda.dto.ProdutoDto;
 import com.merenda.service.ProdutoService;
+import com.merenda.security.SecurityUtils;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;

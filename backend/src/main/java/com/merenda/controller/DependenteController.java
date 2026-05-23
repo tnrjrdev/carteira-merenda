@@ -2,6 +2,7 @@ package com.merenda.controller;
 
 import com.merenda.dto.DependenteDto;
 import com.merenda.service.DependenteService;
+import com.merenda.security.SecurityUtils;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;

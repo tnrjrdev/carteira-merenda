@@ -3,6 +3,7 @@ package com.merenda.controller;
 import com.merenda.model.Pedido;
 import com.merenda.model.StatusPedido;
 import com.merenda.service.PedidoService;
+import com.merenda.security.SecurityUtils;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;

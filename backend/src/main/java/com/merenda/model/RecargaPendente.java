@@ -1,6 +1,6 @@
 package com.merenda.model;
 
-import com.merenda.service.gateway.StatusPagamento;
+import com.merenda.gateway.StatusPagamento;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;

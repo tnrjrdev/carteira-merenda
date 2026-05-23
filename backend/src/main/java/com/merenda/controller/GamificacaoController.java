@@ -2,6 +2,7 @@ package com.merenda.controller;
 
 import com.merenda.model.Meta;
 import com.merenda.service.GamificacaoService;
+import com.merenda.security.SecurityUtils;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
