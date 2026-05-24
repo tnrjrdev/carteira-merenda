@@ -146,10 +146,11 @@ public class AuthService {
             } else {
                 throw new BusinessException("Token do Google inválido");
             }
-        } catch (NotFoundException e) {
+        } catch (NotFoundException | BusinessException | org.springframework.dao.DataAccessException e) {
             throw e;
         } catch (Exception e) {
-            throw new BusinessException("Erro ao validar token do Google: " + e.getMessage());
+            log.error("Falha inesperada ao validar token do Google", e);
+            throw new BusinessException("Não foi possível validar seu login com o Google. Tente novamente em instantes.");
         }
     }
 
@@ -230,10 +231,11 @@ public class AuthService {
             } else {
                 throw new BusinessException("Token do Google inválido");
             }
-        } catch (BusinessException | NotFoundException e) {
+        } catch (BusinessException | NotFoundException | org.springframework.dao.DataAccessException e) {
             throw e;
         } catch (Exception e) {
-            throw new BusinessException("Erro ao registrar com Google: " + e.getMessage());
+            log.error("Falha inesperada ao registrar com Google", e);
+            throw new BusinessException("Não foi possível concluir seu cadastro com o Google. Tente novamente em instantes.");
         }
     }
 

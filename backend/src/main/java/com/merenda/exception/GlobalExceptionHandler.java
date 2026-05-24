@@ -1,5 +1,8 @@
 package com.merenda.exception;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.dao.DataAccessException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
@@ -15,6 +18,8 @@ import java.util.stream.Collectors;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+
+    private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
     @ExceptionHandler(NotFoundException.class)
     public ResponseEntity<Map<String, Object>> notFound(NotFoundException e) {
@@ -67,9 +72,17 @@ public class GlobalExceptionHandler {
         return ResponseEntity.badRequest().body(body);
     }
 
+    @ExceptionHandler(DataAccessException.class)
+    public ResponseEntity<Map<String, Object>> dataAccess(DataAccessException e) {
+        log.error("Erro de acesso ao banco de dados", e);
+        return build(HttpStatus.SERVICE_UNAVAILABLE,
+                "Serviço temporariamente indisponível. Tente novamente em instantes ou contate o suporte.");
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<Map<String, Object>> generic(Exception e) {
-        return build(HttpStatus.INTERNAL_SERVER_ERROR, e.getMessage() == null ? "Erro interno" : e.getMessage());
+        log.error("Erro nao tratado", e);
+        return build(HttpStatus.INTERNAL_SERVER_ERROR, "Erro interno. Tente novamente em instantes.");
     }
 
     private ResponseEntity<Map<String, Object>> build(HttpStatus status, String message) {
