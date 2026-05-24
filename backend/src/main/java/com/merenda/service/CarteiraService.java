@@ -7,6 +7,8 @@ import com.merenda.model.*;
 import com.merenda.repository.CarteiraRepository;
 import com.merenda.repository.TransacaoRepository;
 import com.merenda.repository.UsuarioRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
@@ -22,6 +24,8 @@ import java.util.List;
 
 @Service
 public class CarteiraService {
+
+    private static final Logger log = LoggerFactory.getLogger(CarteiraService.class);
 
     private final CarteiraRepository carteiraRepository;
     private final UsuarioRepository usuarioRepository;
@@ -82,29 +86,82 @@ public class CarteiraService {
 
     @Transactional(readOnly = true)
     public List<CarteiraDto.TransacaoResumo> historicoDoEstudante(Long estudanteId, int page, int size) {
-        Carteira carteira = carteiraRepository.findByEstudanteId(estudanteId)
-                .orElseThrow(() -> new NotFoundException("Carteira não encontrada"));
-        Page<Transacao> pageResult = transacaoRepository.findByCarteiraIdOrderByCriadaEmDesc(
-                carteira.getId(), PageRequest.of(page, size));
-        return pageResult.getContent().stream().map(this::toResumo).toList();
+        log.info("[DEBUG-EXTRATO] inicio estudanteId={} page={} size={}", estudanteId, page, size);
+        Carteira carteira;
+        try {
+            carteira = carteiraRepository.findByEstudanteId(estudanteId)
+                    .orElseThrow(() -> new NotFoundException("Carteira não encontrada"));
+            log.info("[DEBUG-EXTRATO] carteira carregada id={}", carteira.getId());
+        } catch (RuntimeException e) {
+            log.error("[DEBUG-EXTRATO] FALHA ao carregar carteira do estudanteId={}", estudanteId, e);
+            throw e;
+        }
+
+        Page<Transacao> pageResult;
+        try {
+            pageResult = transacaoRepository.findByCarteiraIdOrderByCriadaEmDesc(
+                    carteira.getId(), PageRequest.of(page, size));
+            log.info("[DEBUG-EXTRATO] page de transacoes carregada total={}", pageResult.getTotalElements());
+        } catch (RuntimeException e) {
+            log.error("[DEBUG-EXTRATO] FALHA ao carregar page de transacoes carteiraId={}", carteira.getId(), e);
+            throw e;
+        }
+
+        try {
+            List<CarteiraDto.TransacaoResumo> result = pageResult.getContent().stream().map(this::toResumo).toList();
+            log.info("[DEBUG-EXTRATO] mapeamento OK count={}", result.size());
+            return result;
+        } catch (RuntimeException e) {
+            log.error("[DEBUG-EXTRATO] FALHA ao mapear transacoes para DTO", e);
+            throw e;
+        }
     }
 
     public CarteiraDto.TransacaoResumo toResumo(Transacao t) {
-        return new CarteiraDto.TransacaoResumo(
-                t.getId(),
-                t.getTipo().name(),
-                t.getValor(),
-                t.getSaldoApos(),
-                t.getDescricao(),
-                t.getCantina() == null ? null : t.getCantina().getNome(),
-                t.getCriadaEm(),
-                t.getItens().stream()
+        Long txId = null;
+        try {
+            txId = t.getId();
+            log.info("[DEBUG-RESUMO] tx={} step=start", txId);
+            Long id = t.getId();
+            String tipo = t.getTipo().name();
+            log.info("[DEBUG-RESUMO] tx={} step=tipo ok", txId);
+            BigDecimal valor = t.getValor();
+            BigDecimal saldoApos = t.getSaldoApos();
+            String descricao = t.getDescricao();
+            log.info("[DEBUG-RESUMO] tx={} step=campos-basicos ok", txId);
+
+            String nomeCantina;
+            try {
+                nomeCantina = t.getCantina() == null ? null : t.getCantina().getNome();
+                log.info("[DEBUG-RESUMO] tx={} step=cantina ok nome={}", txId, nomeCantina);
+            } catch (RuntimeException e) {
+                log.error("[DEBUG-RESUMO] tx={} step=cantina FALHA", txId, e);
+                throw e;
+            }
+
+            LocalDateTime criadaEm = t.getCriadaEm();
+            log.info("[DEBUG-RESUMO] tx={} step=criadaEm ok", txId);
+
+            List<CarteiraDto.ItemResumo> itensDto;
+            try {
+                itensDto = t.getItens().stream()
                         .map(i -> new CarteiraDto.ItemResumo(
                                 i.getNomeProduto(),
                                 i.getQuantidade(),
                                 i.getPrecoUnitario(),
                                 i.getSubtotal()))
-                        .toList());
+                        .toList();
+                log.info("[DEBUG-RESUMO] tx={} step=itens ok count={}", txId, itensDto.size());
+            } catch (RuntimeException e) {
+                log.error("[DEBUG-RESUMO] tx={} step=itens FALHA", txId, e);
+                throw e;
+            }
+
+            return new CarteiraDto.TransacaoResumo(id, tipo, valor, saldoApos, descricao, nomeCantina, criadaEm, itensDto);
+        } catch (RuntimeException e) {
+            log.error("[DEBUG-RESUMO] tx={} step=geral FALHA", txId, e);
+            throw e;
+        }
     }
 
     public CarteiraDto.SaldoResponse buildSaldo(Usuario estudante, Carteira c) {
