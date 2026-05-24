@@ -16,6 +16,14 @@ import com.google.api.client.googleapis.auth.oauth2.GoogleIdToken;
 import com.google.api.client.googleapis.auth.oauth2.GoogleIdTokenVerifier;
 import com.google.api.client.http.javanet.NetHttpTransport;
 import com.google.api.client.json.gson.GsonFactory;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -38,6 +46,8 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final AuthenticationManager authenticationManager;
     private final JwtService jwtService;
+
+    private static final Logger log = LoggerFactory.getLogger(AuthService.class);
 
     @Value("${google.client.id}")
     private String googleClientId;
@@ -113,6 +123,19 @@ public class AuthService {
                     .build();
 
             GoogleIdToken idToken = verifier.verify(req.idToken());
+            if (idToken == null) {
+                log.warn("GoogleIdTokenVerifier returned null for token (len={}) — attempting tokeninfo fallback", req.idToken() == null ? 0 : req.idToken().length());
+                String emailFromTokenInfo = verifyTokenWithTokenInfo(req.idToken());
+                if (emailFromTokenInfo != null) {
+                    Usuario u = usuarioRepository.findByEmail(emailFromTokenInfo)
+                            .orElseThrow(() -> new NotFoundException("Usuário não encontrado. Por favor, cadastre-se primeiro."));
+
+                    return buildAuthResponse(u);
+                } else {
+                    throw new BusinessException("Token do Google inválido");
+                }
+            }
+
             if (idToken != null) {
                 String email = idToken.getPayload().getEmail();
 
@@ -156,6 +179,31 @@ public class AuthService {
                     .build();
 
             GoogleIdToken idToken = verifier.verify(req.idToken());
+            if (idToken == null) {
+                log.warn("GoogleIdTokenVerifier returned null for register token (len={}) — attempting tokeninfo fallback", req.idToken() == null ? 0 : req.idToken().length());
+                String emailFromTokenInfo = verifyTokenWithTokenInfo(req.idToken());
+                if (emailFromTokenInfo != null) {
+                    if (usuarioRepository.existsByEmail(emailFromTokenInfo)) {
+                        throw new BusinessException("Já existe conta para este email. Por favor, faça login.");
+                    }
+                    Usuario novo = Usuario.builder()
+                            .nome("Usuário Google")
+                            .email(emailFromTokenInfo)
+                            .senhaHash(passwordEncoder.encode(UUID.randomUUID().toString()))
+                            .role(role)
+                            .cantina(cantina)
+                            .consentimentoLgpd(true)
+                            .consentimentoLgpdEm(LocalDateTime.now())
+                            .consentimentoVersao(req.politicaVersao() == null ? politicaVersaoAtual : req.politicaVersao())
+                            .ativo(true)
+                            .build();
+                    usuarioRepository.save(novo);
+                    return buildAuthResponse(novo);
+                } else {
+                    throw new BusinessException("Token do Google inválido");
+                }
+            }
+
             if (idToken != null) {
                 GoogleIdToken.Payload payload = idToken.getPayload();
                 String email = payload.getEmail();
@@ -215,5 +263,32 @@ public class AuthService {
                             .build();
                     return carteiraRepository.save(c);
                 });
+    }
+
+    private String verifyTokenWithTokenInfo(String idToken) {
+        try {
+            HttpClient client = HttpClient.newHttpClient();
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create("https://oauth2.googleapis.com/tokeninfo?id_token=" + idToken))
+                    .GET()
+                    .build();
+            HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+            if (response.statusCode() == 200) {
+                JsonObject obj = JsonParser.parseString(response.body()).getAsJsonObject();
+                String aud = obj.has("aud") ? obj.get("aud").getAsString() : null;
+                if (aud != null && aud.equals(googleClientId)) {
+                    return obj.has("email") ? obj.get("email").getAsString() : null;
+                } else {
+                    log.warn("tokeninfo aud mismatch: {} expected {}", aud, googleClientId);
+                    return null;
+                }
+            } else {
+                log.warn("tokeninfo returned status {} body {}", response.statusCode(), response.body());
+                return null;
+            }
+        } catch (Exception e) {
+            log.warn("tokeninfo request failed: {}", e.getMessage());
+            return null;
+        }
     }
 }
