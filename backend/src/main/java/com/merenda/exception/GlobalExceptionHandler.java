@@ -82,7 +82,22 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(Exception.class)
     public ResponseEntity<Map<String, Object>> generic(Exception e) {
         log.error("Erro nao tratado", e);
-        return build(HttpStatus.INTERNAL_SERVER_ERROR, "Erro interno. Tente novamente em instantes.");
+        Map<String, Object> body = new HashMap<>();
+        body.put("timestamp", LocalDateTime.now());
+        body.put("status", 500);
+        body.put("message", "Erro interno. Tente novamente em instantes.");
+        body.put("debugException", e.getClass().getName());
+        body.put("debugMessage", e.getMessage());
+        Throwable root = e;
+        while (root.getCause() != null && root.getCause() != root) root = root.getCause();
+        body.put("debugRootCause", root.getClass().getName() + ": " + root.getMessage());
+        StackTraceElement firstApp = null;
+        for (StackTraceElement el : root.getStackTrace()) {
+            if (el.getClassName().startsWith("com.merenda")) { firstApp = el; break; }
+        }
+        body.put("debugFirstAppFrame", firstApp == null ? null :
+                firstApp.getClassName() + "." + firstApp.getMethodName() + "(" + firstApp.getFileName() + ":" + firstApp.getLineNumber() + ")");
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(body);
     }
 
     private ResponseEntity<Map<String, Object>> build(HttpStatus status, String message) {
