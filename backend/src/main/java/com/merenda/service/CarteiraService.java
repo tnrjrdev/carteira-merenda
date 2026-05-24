@@ -80,6 +80,7 @@ public class CarteiraService {
         return buildSaldo(estudante, carteira);
     }
 
+    @Transactional(readOnly = true)
     public List<CarteiraDto.TransacaoResumo> historicoDoEstudante(Long estudanteId, int page, int size) {
         Carteira carteira = carteiraRepository.findByEstudanteId(estudanteId)
                 .orElseThrow(() -> new NotFoundException("Carteira não encontrada"));
