@@ -1,7 +1,22 @@
 package com.merenda.config;
 
-import com.merenda.model.*;
-import com.merenda.repository.*;
+import com.merenda.domain.cantina.model.Cantina;
+import com.merenda.domain.cantina.model.Categoria;
+import com.merenda.domain.cantina.model.Plano;
+import com.merenda.domain.cantina.model.Produto;
+import com.merenda.domain.cantina.repository.CantinaRepository;
+import com.merenda.domain.cantina.repository.CategoriaRepository;
+import com.merenda.domain.cantina.repository.ProdutoRepository;
+import com.merenda.domain.carteira.model.Carteira;
+import com.merenda.domain.carteira.model.Mesada;
+import com.merenda.domain.carteira.repository.CarteiraRepository;
+import com.merenda.domain.gamificacao.model.Badge;
+import com.merenda.domain.gamificacao.model.Meta;
+import com.merenda.domain.gamificacao.repository.BadgeRepository;
+import com.merenda.domain.usuario.model.Role;
+import com.merenda.domain.usuario.model.Usuario;
+import com.merenda.domain.usuario.repository.UsuarioRepository;
+
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;

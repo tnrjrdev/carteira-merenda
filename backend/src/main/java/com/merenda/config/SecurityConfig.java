@@ -1,7 +1,10 @@
 package com.merenda.config;
 
-import com.merenda.security.JwtAuthFilter;
-import com.merenda.security.UsuarioDetailsService;
+import com.merenda.config.security.JwtAuthFilter;
+import com.merenda.config.security.UsuarioDetailsService;
+
+import com.merenda.config.security.JwtAuthFilter;
+import com.merenda.config.security.UsuarioDetailsService;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;

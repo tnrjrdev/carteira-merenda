@@ -1,13 +1,21 @@
 package com.merenda.config;
 
+import com.merenda.infrastructure.gateway.BoletoGateway;
+import com.merenda.infrastructure.gateway.CartaoGateway;
+import com.merenda.infrastructure.gateway.MercadoPagoPixGateway;
+import com.merenda.infrastructure.gateway.PagamentoGateway;
+import com.merenda.infrastructure.gateway.SimulatedBoletoGateway;
+import com.merenda.infrastructure.gateway.SimulatedCartaoGateway;
+import com.merenda.infrastructure.gateway.SimulatedPagamentoGateway;
+
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.merenda.gateway.BoletoGateway;
-import com.merenda.gateway.CartaoGateway;
-import com.merenda.gateway.MercadoPagoPixGateway;
-import com.merenda.gateway.PagamentoGateway;
-import com.merenda.gateway.SimulatedBoletoGateway;
-import com.merenda.gateway.SimulatedCartaoGateway;
-import com.merenda.gateway.SimulatedPagamentoGateway;
+import com.merenda.infrastructure.gateway.BoletoGateway;
+import com.merenda.infrastructure.gateway.CartaoGateway;
+import com.merenda.infrastructure.gateway.MercadoPagoPixGateway;
+import com.merenda.infrastructure.gateway.PagamentoGateway;
+import com.merenda.infrastructure.gateway.SimulatedBoletoGateway;
+import com.merenda.infrastructure.gateway.SimulatedCartaoGateway;
+import com.merenda.infrastructure.gateway.SimulatedPagamentoGateway;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;

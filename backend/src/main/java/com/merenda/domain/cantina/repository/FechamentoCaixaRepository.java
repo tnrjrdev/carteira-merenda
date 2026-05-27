@@ -1,0 +1,17 @@
+package com.merenda.domain.cantina.repository;
+
+import com.merenda.domain.cantina.model.FechamentoCaixa;
+
+import com.merenda.domain.cantina.model.FechamentoCaixa;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.stereotype.Repository;
+
+import java.time.LocalDate;
+import java.util.List;
+import java.util.Optional;
+
+@Repository
+public interface FechamentoCaixaRepository extends JpaRepository<FechamentoCaixa, Long> {
+    Optional<FechamentoCaixa> findByCantinaIdAndDia(Long cantinaId, LocalDate dia);
+    List<FechamentoCaixa> findByCantinaIdOrderByDiaDesc(Long cantinaId);
+}
