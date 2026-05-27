@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext.jsx';
-import api from '../services/api.js';
-import Field from '../components/Field.jsx';
+import { useAuth } from '../../../context/AuthContext.jsx';
+import api from '../../../services/api.js';
+import Field from '../../../components/ui/Field.jsx';
 import LgpdCheckbox from '../components/LgpdCheckbox.jsx';
-import { extractError } from '../utils/format.js';
-import * as V from '../utils/validation.js';
+import { extractError } from '../../../utils/format.js';
+import * as V from '../../../utils/validation.js';
 import { GoogleLogin } from '@react-oauth/google';
 
 export default function Register() {

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
-import api from '../services/api.js';
-import { brl, extractError } from '../utils/format.js';
+import api from '../../../services/api.js';
+import { brl, extractError } from '../../../utils/format.js';
 
 const PERIODOS = [
   { label: '7 dias', dias: 7 },

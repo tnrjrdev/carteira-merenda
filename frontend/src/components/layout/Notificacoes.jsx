@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { useNotificacoes } from '../context/NotificacoesContext.jsx';
-import { formatDateTime } from '../utils/format.js';
+import { useNotificacoes } from '../../context/NotificacoesContext.jsx';
+import { formatDateTime } from '../../utils/format.js';
 
 const iconePorTipo = (tipo) => {
   switch (tipo) {

@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import api from '../services/api.js';
-import Field from '../components/Field.jsx';
+import api from '../../../services/api.js';
+import Field from '../../../components/ui/Field.jsx';
 import PixModal from '../components/PixModal.jsx';
 import BoletoModal from '../components/BoletoModal.jsx';
 import CartaoModal from '../components/CartaoModal.jsx';
 import MesadaForm from '../components/MesadaForm.jsx';
-import { brl, extractError, formatDateTime } from '../utils/format.js';
+import { brl, extractError, formatDateTime } from '../../../utils/format.js';
 
 const HeaderSaldo = ({ saldo, dep }) => {
   const percentDia = saldo.limiteDiario ? Math.min(100, (Number(saldo.gastoHoje) / Number(saldo.limiteDiario)) * 100) : 0;

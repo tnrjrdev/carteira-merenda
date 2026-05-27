@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import api from '../services/api.js';
-import Field from '../components/Field.jsx';
-import { brl, extractError, formatDateTime } from '../utils/format.js';
+import api from '../../../services/api.js';
+import Field from '../../../components/ui/Field.jsx';
+import { brl, extractError, formatDateTime } from '../../../utils/format.js';
 
 export default function EstudanteConquistas() {
   const [resumo, setResumo] = useState(null);

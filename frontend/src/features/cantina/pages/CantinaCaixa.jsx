@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
-import api from '../services/api.js';
-import { brl, extractError, formatDateTime } from '../utils/format.js';
+import api from '../../../services/api.js';
+import { brl, extractError, formatDateTime } from '../../../utils/format.js';
 
 export default function CantinaCaixa() {
   const [previa, setPrevia] = useState(null);

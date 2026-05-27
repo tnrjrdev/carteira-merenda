@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { QRCodeSVG } from 'qrcode.react';
-import api from '../services/api.js';
-import { brl, extractError, formatDateTime } from '../utils/format.js';
-import { nfcSupported, escreverNfc } from '../services/nfc.js';
+import api from '../../../services/api.js';
+import { brl, extractError, formatDateTime } from '../../../utils/format.js';
+import { nfcSupported, escreverNfc } from '../../../services/nfc.js';
 
 const HeaderSaldo = ({ saldo }) => (
   <header className="glass-panel overflow-hidden relative bg-gradient-to-br from-merenda-500 to-merenda-700 text-white shadow-glow border-0">

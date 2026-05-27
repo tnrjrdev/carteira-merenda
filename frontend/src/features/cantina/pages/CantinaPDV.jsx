@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
-import api from '../services/api.js';
-import { useAuth } from '../context/AuthContext.jsx';
-import { brl, extractError } from '../utils/format.js';
-import QrScanner from '../components/QrScanner.jsx';
-import { nfcSupported, lerNfcUmaVez } from '../services/nfc.js';
+import api from '../../../services/api.js';
+import { useAuth } from '../../../context/AuthContext.jsx';
+import { brl, extractError } from '../../../utils/format.js';
+import QrScanner from '../../../components/ui/QrScanner.jsx';
+import { nfcSupported, lerNfcUmaVez } from '../../../services/nfc.js';
 
 const categoriaCor = (nome) => {
   const map = {

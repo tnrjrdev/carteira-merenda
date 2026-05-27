@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
-import api from '../services/api.js';
-import Field from '../components/Field.jsx';
-import { extractError, formatDateTime } from '../utils/format.js';
+import api from '../../../services/api.js';
+import Field from '../../../components/ui/Field.jsx';
+import { extractError, formatDateTime } from '../../../utils/format.js';
 
 const EVENTOS_DISPONIVEIS = [
   { id: 'COMPRA_REALIZADA', label: 'Compra realizada' },

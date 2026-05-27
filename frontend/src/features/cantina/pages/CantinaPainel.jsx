@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import api from '../services/api.js';
-import { brl, extractError, formatDateTime } from '../utils/format.js';
+import api from '../../../services/api.js';
+import { brl, extractError, formatDateTime } from '../../../utils/format.js';
 
 export default function CantinaPainel() {
   const [resumo, setResumo] = useState(null);

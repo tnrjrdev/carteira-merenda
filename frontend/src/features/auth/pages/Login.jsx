@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext.jsx';
-import Field from '../components/Field.jsx';
-import { extractError } from '../utils/format.js';
-import * as V from '../utils/validation.js';
+import { useAuth } from '../../../context/AuthContext.jsx';
+import Field from '../../../components/ui/Field.jsx';
+import { extractError } from '../../../utils/format.js';
+import * as V from '../../../utils/validation.js';
 import { GoogleLogin } from '@react-oauth/google';
 
 export default function Login() {

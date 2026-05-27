@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import api from '../services/api.js';
-import Field from '../components/Field.jsx';
-import { brl, extractError } from '../utils/format.js';
-import * as V from '../utils/validation.js';
+import api from '../../../services/api.js';
+import Field from '../../../components/ui/Field.jsx';
+import { brl, extractError } from '../../../utils/format.js';
+import * as V from '../../../utils/validation.js';
 
 // --- Sub-components para modularização ---
 

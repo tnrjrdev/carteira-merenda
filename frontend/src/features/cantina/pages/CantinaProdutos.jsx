@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
-import api from '../services/api.js';
-import { useAuth } from '../context/AuthContext.jsx';
-import Field from '../components/Field.jsx';
-import { brl, extractError } from '../utils/format.js';
-import * as V from '../utils/validation.js';
+import api from '../../../services/api.js';
+import { useAuth } from '../../../context/AuthContext.jsx';
+import Field from '../../../components/ui/Field.jsx';
+import { brl, extractError } from '../../../utils/format.js';
+import * as V from '../../../utils/validation.js';
 
 const categoriaCor = (nome) => {
   const map = {

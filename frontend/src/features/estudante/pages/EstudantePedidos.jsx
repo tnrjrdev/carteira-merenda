@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import api from '../services/api.js';
-import { brl, extractError, formatDateTime } from '../utils/format.js';
+import api from '../../../services/api.js';
+import { brl, extractError, formatDateTime } from '../../../utils/format.js';
 
 const statusCor = {
   AGENDADO: 'bg-amber-100 text-amber-800',

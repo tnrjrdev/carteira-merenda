@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
-import api from '../services/api.js';
-import Field from './Field.jsx';
-import { brl, extractError } from '../utils/format.js';
+import api from '../../../services/api.js';
+import Field from '../../../components/ui/Field.jsx';
+import { brl, extractError } from '../../../utils/format.js';
 
 const FREQUENCIAS = [
   { v: 'DIARIA', l: 'Toda escola dia (segunda a sexta)' },
