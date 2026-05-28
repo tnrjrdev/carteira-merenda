@@ -22,10 +22,8 @@ import com.merenda.domain.usuario.model.Usuario;
 import com.merenda.domain.usuario.repository.UsuarioRepository;
 import com.merenda.infrastructure.webhook.WebhookDispatcher;
 import com.merenda.infrastructure.webhook.WebhookEvento;
-
-import com.merenda.domain.carteira.dto.PagamentoDto;
-import com.merenda.config.exception.BusinessException;
-import com.merenda.config.exception.NotFoundException;
+import com.merenda.domain.carteira.service.AutoRecargaService;
+import com.merenda.service.NotificacaoService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -69,6 +67,9 @@ public class PagamentoService {
 
     @Autowired(required = false)
     private GamificacaoService gamificacaoService;
+
+    @Autowired(required = false)
+    private AutoRecargaService autoRecargaService;
 
     public PagamentoService(PagamentoTokenRepository tokenRepository,
                             UsuarioRepository usuarioRepository,
@@ -270,6 +271,13 @@ public class PagamentoService {
                 gamificacaoService.avaliarAposCompra(estudante, carteira.getId(), total, itens);
             } catch (Exception ex) {
                 // gamificação nunca quebra o fluxo de cobrança
+            }
+        }
+        if (autoRecargaService != null) {
+            try {
+                autoRecargaService.tentarAposCompra(carteira);
+            } catch (Exception ex) {
+                // auto-recarga nunca quebra o fluxo de cobrança
             }
         }
 

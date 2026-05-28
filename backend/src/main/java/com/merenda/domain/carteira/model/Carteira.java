@@ -36,6 +36,28 @@ public class Carteira {
     @Column(precision = 14, scale = 2)
     private BigDecimal limiteSemanal;
 
+    /** Auto-recarga: quando saldo < saldoMinimo, cobra valorRecarga do cartão salvo do responsável. */
+    @Column(nullable = false)
+    private boolean autoRecargaAtiva = false;
+
+    @Column(precision = 14, scale = 2)
+    private BigDecimal saldoMinimo;
+
+    @Column(precision = 14, scale = 2)
+    private BigDecimal valorRecarga;
+
+    private String mpCustomerId;
+    private String mpCardId;
+    @Column(length = 20)
+    private String cardBandeira;
+    @Column(length = 4)
+    private String cardUltimos4;
+
+    @Column(length = 300)
+    private String ultimaFalhaAutoRecarga;
+    private LocalDateTime ultimaFalhaAutoRecargaEm;
+    private LocalDateTime ultimaAutoRecargaEm;
+
     @Column(nullable = false, updatable = false)
     private LocalDateTime criadoEm;
 

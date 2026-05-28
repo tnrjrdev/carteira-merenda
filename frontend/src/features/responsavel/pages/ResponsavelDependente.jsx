@@ -6,6 +6,7 @@ import PixModal from '../components/PixModal.jsx';
 import BoletoModal from '../components/BoletoModal.jsx';
 import CartaoModal from '../components/CartaoModal.jsx';
 import MesadaForm from '../components/MesadaForm.jsx';
+import AutoRecargaForm from '../components/AutoRecargaForm.jsx';
 import { brl, extractError, formatDateTime } from '../../../utils/format.js';
 
 const HeaderSaldo = ({ saldo, dep }) => {
@@ -302,6 +303,17 @@ export default function ResponsavelDependente() {
             </div>
           </div>
           <MesadaForm estudanteId={id} />
+        </div>
+
+        <div className="card md:col-span-2">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="feature-icon">⚡</div>
+            <div>
+              <h2 className="font-display font-bold text-xl">Auto-recarga</h2>
+              <p className="text-xs text-slate-500">Quando o saldo cair abaixo do mínimo, cobra automaticamente do seu cartão</p>
+            </div>
+          </div>
+          <AutoRecargaForm estudanteId={id} />
         </div>
       </div>
 
