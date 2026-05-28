@@ -1,0 +1,13 @@
+-- Flyway baseline (V1).
+--
+-- Esta migração NÃO é executada em bancos existentes nem em fresh installs:
+-- spring.flyway.baseline-on-migrate=true + baseline-version=1 marca o banco como
+-- já tendo sido migrado a este ponto.
+--
+-- O schema inicial é gerado por Hibernate (spring.jpa.hibernate.ddl-auto=update) e
+-- por isso esta baseline é apenas um marcador. Quando a equipe decidir parar de usar
+-- ddl-auto=update, basta gerar um V2__... com o schema autoritativo e mudar para
+-- ddl-auto=validate.
+--
+-- Próximas migrações: criar arquivos V2__nome_descritivo.sql, V3__..., etc. nesta pasta.
+SELECT 1;
