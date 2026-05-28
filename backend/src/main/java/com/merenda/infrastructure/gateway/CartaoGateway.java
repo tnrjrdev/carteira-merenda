@@ -1,17 +1,15 @@
 package com.merenda.infrastructure.gateway;
 
 
-import java.math.BigDecimal;
-
 public interface CartaoGateway {
 
     String nome();
 
     /**
+     * Cobra um cartão de crédito.
      * Em produção, o frontend usa o SDK do gateway (ex: Mercado Pago Bricks)
-     * para gerar um cardToken seguro (PCI-compliant). O backend recebe SÓ o token.
-     * Aqui (mock) aceitamos o token literal — NÃO USE EM PRODUÇÃO sem SDK.
+     * para gerar o cardToken seguro (PCI-compliant). O backend recebe SÓ o token
+     * e o paymentMethodId (visa, master, etc).
      */
-    CobrancaCartao cobrar(BigDecimal valor, String cardToken, String descricao,
-                          String payerEmail, String payerNome, Integer parcelas);
+    CobrancaCartao cobrar(CartaoCobrancaRequest req);
 }

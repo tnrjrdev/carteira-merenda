@@ -9,13 +9,10 @@ import java.math.RoundingMode;
 import java.util.UUID;
 
 /**
- * Mock de gateway de cartão. Em produção:
- *  - Use Mercado Pago Bricks/Checkout API, Stripe Elements ou Pagar.me Checkout
- *    para tokenizar o cartão no FRONTEND (PCI-compliant).
- *  - O backend nunca vê o PAN — apenas o cardToken descartável.
- *  - O `valorLiquidoCreditado` aqui é calculado como `valorBruto - taxa`. Em produção
- *    o gateway debita a taxa do split — o saldo creditado ao aluno deve refletir essa
- *    diferença.
+ * Mock de gateway de cartão para dev. Tokens de teste:
+ *   - prefixo "REC_" → RECUSADO
+ *   - prefixo "ERR_" → CANCELADO (erro temporário)
+ *   - qualquer outro → APROVADO
  */
 public class SimulatedCartaoGateway implements CartaoGateway {
 
@@ -31,15 +28,15 @@ public class SimulatedCartaoGateway implements CartaoGateway {
     public String nome() { return "cartao-simulated"; }
 
     @Override
-    public CobrancaCartao cobrar(BigDecimal valor, String cardToken, String descricao,
-                                 String payerEmail, String payerNome, Integer parcelas) {
+    public CobrancaCartao cobrar(CartaoCobrancaRequest req) {
         String externalId = "crd-" + UUID.randomUUID();
+        String cardToken = req.cardToken();
+        BigDecimal valor = req.valor();
 
         if (cardToken == null || cardToken.isBlank()) {
             return new CobrancaCartao(externalId, valor, BigDecimal.ZERO, BigDecimal.ZERO,
                     null, null, StatusPagamento.RECUSADO, "Token do cartão ausente");
         }
-        // Convenção de teste: tokens começados com "REC_" recusam, "ERR_" erram.
         if (cardToken.startsWith("REC_")) {
             return new CobrancaCartao(externalId, valor, BigDecimal.ZERO, BigDecimal.ZERO,
                     "VISA", "0002", StatusPagamento.RECUSADO, "Cartão recusado pela operadora");
@@ -55,11 +52,8 @@ public class SimulatedCartaoGateway implements CartaoGateway {
         log.info("[cartao-simulated] aprovado externalId={} bruto={} taxa={} liquido={}",
                 externalId, valor, taxa, liquido);
         return new CobrancaCartao(
-                externalId,
-                valor,
-                taxa,
-                liquido,
-                "VISA",
+                externalId, valor, taxa, liquido,
+                req.paymentMethodId() != null ? req.paymentMethodId().toUpperCase() : "VISA",
                 "1234",
                 StatusPagamento.APROVADO,
                 "Aprovado");

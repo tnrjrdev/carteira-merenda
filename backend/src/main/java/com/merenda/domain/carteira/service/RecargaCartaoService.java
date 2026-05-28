@@ -12,12 +12,8 @@ import com.merenda.domain.carteira.repository.TransacaoRepository;
 import com.merenda.domain.usuario.model.Role;
 import com.merenda.domain.usuario.model.Usuario;
 import com.merenda.domain.usuario.repository.UsuarioRepository;
-import com.merenda.infrastructure.gateway.CartaoGateway;
-import com.merenda.infrastructure.gateway.CobrancaCartao;
-import com.merenda.infrastructure.gateway.StatusPagamento;
-
-import com.merenda.config.exception.BusinessException;
-import com.merenda.config.exception.NotFoundException;
+import com.merenda.service.NotificacaoService;
+import com.merenda.infrastructure.gateway.CartaoCobrancaRequest;
 import com.merenda.infrastructure.gateway.CartaoGateway;
 import com.merenda.infrastructure.gateway.CobrancaCartao;
 import com.merenda.infrastructure.gateway.StatusPagamento;
@@ -59,7 +55,8 @@ public class RecargaCartaoService {
 
     @Transactional
     public Map<String, Object> cobrar(Usuario solicitante, Long estudanteId,
-                                      BigDecimal valor, String cardToken, Integer parcelas) {
+                                      BigDecimal valor, String cardToken,
+                                      String paymentMethodId, String issuerId, Integer parcelas) {
         if (valor == null || valor.compareTo(BigDecimal.ONE) < 0) {
             throw new BusinessException("Valor mínimo é R$ 1,00");
         }
@@ -84,11 +81,17 @@ public class RecargaCartaoService {
                 .orElseGet(() -> carteiraRepository.save(Carteira.builder()
                         .estudante(estudante).saldo(BigDecimal.ZERO).build()));
 
-        CobrancaCartao cob = gateway.cobrar(valor, cardToken,
+        CartaoCobrancaRequest req = new CartaoCobrancaRequest(
+                valor,
+                cardToken,
+                paymentMethodId,
+                issuerId,
                 "Recarga Merenda · " + estudante.getNome(),
                 solicitante.getEmail(),
                 solicitante.getNome(),
+                solicitante.getCpf(),
                 parcelas == null || parcelas < 1 ? 1 : parcelas);
+        CobrancaCartao cob = gateway.cobrar(req);
 
         RecargaPendente r = RecargaPendente.builder()
                 .carteira(carteira)
