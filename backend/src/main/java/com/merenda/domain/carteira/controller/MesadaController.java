@@ -61,4 +61,20 @@ public class MesadaController {
     public ResponseEntity<Map<String, Object>> executar() {
         return ResponseEntity.ok(mesadaService.executarManualmente());
     }
+
+    /** Vincula um cartão (Mercado Pago) para cobrar a mesada do responsável a cada execução. */
+    @PostMapping("/estudante/{estudanteId}/cartao")
+    @PreAuthorize("hasAnyRole('RESPONSAVEL','ADMIN')")
+    public ResponseEntity<Mesada> vincularCartao(@PathVariable Long estudanteId,
+                                                 @RequestBody Map<String, Object> body) {
+        String cardToken = (String) body.get("cardToken");
+        return ResponseEntity.ok(mesadaService.vincularCartao(
+                securityUtils.currentUser(), estudanteId, cardToken));
+    }
+
+    @DeleteMapping("/estudante/{estudanteId}/cartao")
+    @PreAuthorize("hasAnyRole('RESPONSAVEL','ADMIN')")
+    public ResponseEntity<Mesada> desvincularCartao(@PathVariable Long estudanteId) {
+        return ResponseEntity.ok(mesadaService.desvincularCartao(securityUtils.currentUser(), estudanteId));
+    }
 }

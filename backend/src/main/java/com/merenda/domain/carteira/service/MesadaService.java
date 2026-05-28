@@ -12,6 +12,11 @@ import com.merenda.domain.carteira.repository.TransacaoRepository;
 import com.merenda.domain.usuario.model.Role;
 import com.merenda.domain.usuario.model.Usuario;
 import com.merenda.domain.usuario.repository.UsuarioRepository;
+import com.merenda.infrastructure.gateway.CartaoGateway;
+import com.merenda.infrastructure.gateway.CobrancaCartao;
+import com.merenda.infrastructure.gateway.MercadoPagoCartaoGateway;
+import com.merenda.infrastructure.gateway.StatusPagamento;
+import com.merenda.service.NotificacaoService;
 
 import com.merenda.config.exception.BusinessException;
 import com.merenda.config.exception.NotFoundException;
@@ -41,17 +46,62 @@ public class MesadaService {
     private final CarteiraRepository carteiraRepository;
     private final TransacaoRepository transacaoRepository;
     private final NotificacaoService notificacaoService;
+    private final CartaoGateway cartaoGateway;
 
     public MesadaService(MesadaRepository mesadaRepository,
                          UsuarioRepository usuarioRepository,
                          CarteiraRepository carteiraRepository,
                          TransacaoRepository transacaoRepository,
-                         NotificacaoService notificacaoService) {
+                         NotificacaoService notificacaoService,
+                         CartaoGateway cartaoGateway) {
         this.mesadaRepository = mesadaRepository;
         this.usuarioRepository = usuarioRepository;
         this.carteiraRepository = carteiraRepository;
         this.transacaoRepository = transacaoRepository;
         this.notificacaoService = notificacaoService;
+        this.cartaoGateway = cartaoGateway;
+    }
+
+    /** Adiciona/atualiza dados de cartão salvo no Mercado Pago para cobrar a mesada. */
+    @Transactional
+    public Mesada vincularCartao(Usuario responsavel, Long estudanteId, String cardToken) {
+        Mesada m = mesadaRepository.findByEstudanteId(estudanteId)
+                .orElseThrow(() -> new NotFoundException("Configure a mesada antes de vincular um cartão"));
+        if (responsavel.getRole() == Role.RESPONSAVEL
+                && !m.getResponsavel().getId().equals(responsavel.getId())) {
+            throw new BusinessException("Sem permissão");
+        }
+        if (!(cartaoGateway instanceof MercadoPagoCartaoGateway mp)) {
+            throw new BusinessException("Vincular cartão exige gateway Mercado Pago configurado");
+        }
+        if (cardToken == null || cardToken.isBlank()) {
+            throw new BusinessException("Token do cartão obrigatório");
+        }
+        var saved = mp.salvarCartao(responsavel.getEmail(), cardToken);
+        m.setMpCustomerId(saved.get("customerId"));
+        m.setMpCardId(saved.get("cardId"));
+        m.setCardBandeira(saved.get("bandeira"));
+        m.setCardUltimos4(saved.get("ultimos4"));
+        m.setCobrarDoCartao(true);
+        m.setUltimaFalhaCobranca(null);
+        m.setUltimaFalhaEm(null);
+        return mesadaRepository.save(m);
+    }
+
+    @Transactional
+    public Mesada desvincularCartao(Usuario responsavel, Long estudanteId) {
+        Mesada m = mesadaRepository.findByEstudanteId(estudanteId)
+                .orElseThrow(() -> new NotFoundException("Mesada não encontrada"));
+        if (responsavel.getRole() == Role.RESPONSAVEL
+                && !m.getResponsavel().getId().equals(responsavel.getId())) {
+            throw new BusinessException("Sem permissão");
+        }
+        m.setCobrarDoCartao(false);
+        m.setMpCustomerId(null);
+        m.setMpCardId(null);
+        m.setCardBandeira(null);
+        m.setCardUltimos4(null);
+        return mesadaRepository.save(m);
     }
 
     @Transactional
@@ -147,6 +197,31 @@ public class MesadaService {
         Carteira c = carteiraRepository.findByEstudanteId(m.getEstudante().getId())
                 .orElseGet(() -> carteiraRepository.save(Carteira.builder()
                         .estudante(m.getEstudante()).saldo(BigDecimal.ZERO).build()));
+
+        // Se a mesada está configurada para cobrar do cartão, tenta cobrar antes de creditar
+        if (m.isCobrarDoCartao() && m.getMpCardId() != null && m.getMpCustomerId() != null
+                && cartaoGateway instanceof MercadoPagoCartaoGateway mp) {
+            CobrancaCartao cob = mp.cobrarComCartaoSalvo(
+                    m.getMpCustomerId(), m.getMpCardId(), null, m.getValor(),
+                    "Mesada Merenda · " + m.getEstudante().getNome());
+            if (cob.status() != StatusPagamento.APROVADO) {
+                m.setUltimaFalhaCobranca(truncate(
+                        cob.mensagem() == null ? cob.status().name() : cob.mensagem(), 290));
+                m.setUltimaFalhaEm(hoje);
+                mesadaRepository.save(m);
+                notificacaoService.criar(m.getResponsavel(), "MESADA_FALHA",
+                        "Mesada não foi cobrada",
+                        "Cartão recusado para mesada de " + m.getEstudante().getNome() + ": "
+                                + cob.mensagem() + ". Atualize o cartão para retomar.",
+                        "/responsavel/dependente/" + m.getEstudante().getId());
+                log.warn("[mesada] Cartão recusado mesada={} motivo={}", m.getId(), cob.mensagem());
+                return;
+            }
+            m.setUltimaFalhaCobranca(null);
+            m.setUltimaFalhaEm(null);
+            log.info("[mesada] Cartão cobrado mesada={} externalId={}", m.getId(), cob.externalId());
+        }
+
         c.setSaldo(c.getSaldo().add(m.getValor()));
         carteiraRepository.save(c);
 
@@ -178,5 +253,10 @@ public class MesadaService {
     public Map<String, Object> executarManualmente() {
         executarMesadasDoDia();
         return Map.of("executadoEm", java.time.LocalDateTime.now().toString());
+    }
+
+    private static String truncate(String s, int max) {
+        if (s == null) return null;
+        return s.length() <= max ? s : s.substring(0, max);
     }
 }

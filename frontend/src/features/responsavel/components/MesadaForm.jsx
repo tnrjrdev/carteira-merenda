@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import api from '../../../services/api.js';
 import Field from '../../../components/ui/Field.jsx';
 import { brl, extractError } from '../../../utils/format.js';
+import SalvarCartaoBrick from './SalvarCartaoBrick.jsx';
 
 const FREQUENCIAS = [
   { v: 'DIARIA', l: 'Toda escola dia (segunda a sexta)' },
@@ -20,22 +21,27 @@ export default function MesadaForm({ estudanteId }) {
   const [carregado, setCarregado] = useState(false);
   const [aviso, setAviso] = useState(null);
   const [err, setErr] = useState(null);
+  const [vincularCartao, setVincularCartao] = useState(false);
 
-  useEffect(() => {
-    api.get(`/mesadas/estudante/${estudanteId}`)
-      .then(({ data }) => {
-        if (data && data.id) setM({
+  const recarregar = () =>
+    api.get(`/mesadas/estudante/${estudanteId}`).then(({ data }) => {
+      if (data && data.id) {
+        setM({
           valor: data.valor,
           frequencia: data.frequencia,
           diaSemana: data.diaSemana || 'MONDAY',
           diaMes: data.diaMes || 5,
           ativa: data.ativa,
           ultimaExecucao: data.ultimaExecucao,
+          cobrarDoCartao: data.cobrarDoCartao,
+          cardBandeira: data.cardBandeira,
+          cardUltimos4: data.cardUltimos4,
+          ultimaFalhaCobranca: data.ultimaFalhaCobranca,
         });
-      })
-      .catch(() => {})
-      .finally(() => setCarregado(true));
-  }, [estudanteId]);
+      }
+    });
+
+  useEffect(() => { recarregar().catch(() => {}).finally(() => setCarregado(true)); }, [estudanteId]);
 
   const salvar = async (e) => {
     e.preventDefault();
@@ -50,6 +56,7 @@ export default function MesadaForm({ estudanteId }) {
         ativa: !!m.ativa,
       });
       setAviso('Mesada salva! Próximo crédito segue o cronograma.');
+      await recarregar();
     } catch (e) { setErr(extractError(e)); }
   };
 
@@ -58,6 +65,25 @@ export default function MesadaForm({ estudanteId }) {
       await api.delete(`/mesadas/estudante/${estudanteId}`);
       setM({ valor: '', frequencia: 'SEMANAL', diaSemana: 'MONDAY', diaMes: 5, ativa: false });
       setAviso('Mesada removida.');
+    } catch (e) { setErr(extractError(e)); }
+  };
+
+  const tokenSalvar = async ({ cardToken }) => {
+    setErr(null); setAviso(null);
+    try {
+      await api.post(`/mesadas/estudante/${estudanteId}/cartao`, { cardToken });
+      setAviso('Cartão vinculado! Agora a mesada será cobrada deste cartão.');
+      setVincularCartao(false);
+      await recarregar();
+    } catch (e) { setErr(extractError(e)); throw e; }
+  };
+
+  const desvincularCartao = async () => {
+    if (!confirm('Remover o cartão vinculado? A mesada voltará a creditar saldo sem cobrança.')) return;
+    try {
+      await api.delete(`/mesadas/estudante/${estudanteId}/cartao`);
+      setAviso('Cartão removido. Mesada agora é apenas crédito.');
+      await recarregar();
     } catch (e) { setErr(extractError(e)); }
   };
 
@@ -109,6 +135,33 @@ export default function MesadaForm({ estudanteId }) {
         <button className="btn-primary text-sm" type="submit">{m.ativa ? 'Salvar mesada' : 'Salvar (pausada)'}</button>
         <button type="button" onClick={desativar} className="btn-secondary text-sm text-red-600">Remover mesada</button>
       </div>
+
+      <div className="border-t border-slate-100 pt-3 mt-3">
+        <h4 className="font-semibold text-sm text-slate-800 mb-1">Cobrar do meu cartão (recorrente)</h4>
+        {m.cobrarDoCartao && m.cardBandeira ? (
+          <div className="flex items-center gap-2 text-sm bg-violet-50 border border-violet-200 rounded-lg p-3">
+            <span>💳 <b>{m.cardBandeira}</b> •••• <b>{m.cardUltimos4}</b></span>
+            <span className="text-xs text-violet-700 ml-auto">cobrança a cada execução</span>
+            <button type="button" onClick={desvincularCartao} className="text-xs text-red-600 hover:underline">Remover</button>
+          </div>
+        ) : !vincularCartao ? (
+          <button type="button" onClick={() => setVincularCartao(true)} className="btn-secondary text-sm">
+            💳 Vincular cartão para cobrança recorrente
+          </button>
+        ) : (
+          <SalvarCartaoBrick onTokenObtido={tokenSalvar} onErro={(msg) => setErr(msg)} />
+        )}
+        {m.ultimaFalhaCobranca && (
+          <div className="bg-red-50 border border-red-200 text-red-700 p-2 rounded-lg text-xs mt-2">
+            ⚠ Última cobrança falhou: {m.ultimaFalhaCobranca}
+          </div>
+        )}
+        <p className="text-[10px] text-slate-400 mt-1">
+          Quando vinculado, a cada execução da mesada cobramos seu cartão antes de creditar o saldo.
+          Sem cartão, a mesada apenas credita saldo (modo simples).
+        </p>
+      </div>
+
       <p className="text-[10px] text-slate-400">A mesada é creditada automaticamente toda manhã (job 8h), conforme o cronograma.</p>
     </form>
   );

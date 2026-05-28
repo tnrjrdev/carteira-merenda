@@ -52,6 +52,22 @@ public class Mesada {
 
     private LocalDate ultimaExecucao;
 
+    /** Quando true, em cada execução o backend tenta cobrar o cartão salvo do responsável (MP). */
+    @Column(nullable = false)
+    private boolean cobrarDoCartao = false;
+
+    private String mpCustomerId;
+    private String mpCardId;
+    @Column(length = 20)
+    private String cardBandeira;
+    @Column(length = 4)
+    private String cardUltimos4;
+
+    /** Última falha de cobrança no cartão (para mostrar ao responsável). */
+    @Column(length = 300)
+    private String ultimaFalhaCobranca;
+    private LocalDate ultimaFalhaEm;
+
     @Column(nullable = false, updatable = false)
     private LocalDateTime criadaEm;
 
