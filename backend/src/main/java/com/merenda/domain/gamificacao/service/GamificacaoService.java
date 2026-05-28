@@ -13,9 +13,7 @@ import com.merenda.domain.gamificacao.repository.UsuarioBadgeRepository;
 import com.merenda.domain.usuario.model.Role;
 import com.merenda.domain.usuario.model.Usuario;
 import com.merenda.domain.usuario.repository.UsuarioRepository;
-
-import com.merenda.config.exception.BusinessException;
-import com.merenda.config.exception.NotFoundException;
+import com.merenda.service.NotificacaoService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;

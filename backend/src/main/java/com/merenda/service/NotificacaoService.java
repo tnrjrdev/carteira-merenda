@@ -1,9 +1,10 @@
 package com.merenda.service;
 
 import com.merenda.model.Notificacao;
-import com.merenda.model.Usuario;
+import com.merenda.domain.usuario.model.Usuario;
 import com.merenda.repository.NotificacaoRepository;
-import com.merenda.repository.UsuarioRepository;
+import com.merenda.domain.usuario.repository.UsuarioRepository;
+import com.merenda.domain.usuario.service.PushService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;

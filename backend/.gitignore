@@ -20,3 +20,8 @@ data/
 .DS_Store
 Thumbs.db
 merenda_prd.md
+
+### Local secrets (NUNCA versionar) ###
+.env
+.env.local
+src/main/resources/application-local.properties

@@ -1,9 +1,19 @@
 package com.merenda.service;
 
-import com.merenda.exception.BusinessException;
-import com.merenda.exception.NotFoundException;
-import com.merenda.model.*;
-import com.merenda.repository.*;
+import com.merenda.config.exception.BusinessException;
+import com.merenda.config.exception.NotFoundException;
+import com.merenda.domain.bloqueio.repository.BloqueioCategoriaRepository;
+import com.merenda.domain.carteira.repository.CarteiraRepository;
+import com.merenda.domain.carteira.repository.RecargaPendenteRepository;
+import com.merenda.domain.carteira.repository.TransacaoRepository;
+import com.merenda.domain.gamificacao.repository.MetaRepository;
+import com.merenda.domain.gamificacao.repository.UsuarioBadgeRepository;
+import com.merenda.domain.pedido.repository.PedidoRepository;
+import com.merenda.domain.usuario.model.Role;
+import com.merenda.domain.usuario.model.Usuario;
+import com.merenda.domain.usuario.repository.PushTokenRepository;
+import com.merenda.domain.usuario.repository.UsuarioRepository;
+import com.merenda.repository.NotificacaoRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;

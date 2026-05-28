@@ -2,7 +2,7 @@ package com.merenda.controller;
 
 import com.merenda.model.Notificacao;
 import com.merenda.service.NotificacaoService;
-import com.merenda.security.SecurityUtils;
+import com.merenda.config.security.SecurityUtils;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;

@@ -1,8 +1,7 @@
 package com.merenda.controller;
 
-import com.merenda.dto.GoogleLoginRequest;
 import com.merenda.service.LgpdService;
-import com.merenda.security.SecurityUtils;
+import com.merenda.config.security.SecurityUtils;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;

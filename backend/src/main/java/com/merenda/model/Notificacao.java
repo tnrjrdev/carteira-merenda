@@ -1,5 +1,6 @@
 package com.merenda.model;
 
+import com.merenda.domain.usuario.model.Usuario;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;

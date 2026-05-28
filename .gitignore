@@ -1,0 +1,19 @@
+# Dados locais do H2 (dev) — nunca commitar
+data/
+*.db
+*.trace.db
+*.lock.db
+
+# Segredos
+.env
+.env.local
+.env.*.local
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.iml

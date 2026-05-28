@@ -1,11 +1,11 @@
 package com.merenda.service;
 
-import com.merenda.model.Cantina;
-import com.merenda.model.Role;
-import com.merenda.model.TipoTransacao;
-import com.merenda.repository.CantinaRepository;
-import com.merenda.repository.TransacaoRepository;
-import com.merenda.repository.UsuarioRepository;
+import com.merenda.domain.cantina.model.Cantina;
+import com.merenda.domain.cantina.repository.CantinaRepository;
+import com.merenda.domain.carteira.model.TipoTransacao;
+import com.merenda.domain.carteira.repository.TransacaoRepository;
+import com.merenda.domain.usuario.model.Role;
+import com.merenda.domain.usuario.repository.UsuarioRepository;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;

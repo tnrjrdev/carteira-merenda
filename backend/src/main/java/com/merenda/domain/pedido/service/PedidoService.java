@@ -21,9 +21,7 @@ import com.merenda.domain.pedido.repository.PedidoRepository;
 import com.merenda.domain.usuario.model.Role;
 import com.merenda.domain.usuario.model.Usuario;
 import com.merenda.domain.usuario.repository.UsuarioRepository;
-
-import com.merenda.config.exception.BusinessException;
-import com.merenda.config.exception.NotFoundException;
+import com.merenda.service.NotificacaoService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
