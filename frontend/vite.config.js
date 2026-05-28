@@ -7,7 +7,7 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.svg', 'robots.txt'],
+      includeAssets: ['favicon.svg', 'robots.txt', 'firebase-messaging-sw.js'],
       manifest: {
         name: 'Merenda — Carteira Digital Escolar',
         short_name: 'Merenda',
@@ -29,8 +29,10 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,svg,png,ico,webp}'],
+        // SW do FCM é gerenciado separadamente — não pré-cachear
+        globIgnores: ['**/firebase-messaging-sw.js'],
         // não tenta cachear streams SSE nem chamadas autenticadas mutáveis
-        navigateFallbackDenylist: [/^\/api\//],
+        navigateFallbackDenylist: [/^\/api\//, /^\/firebase-messaging-sw\.js$/],
         runtimeCaching: [
           {
             urlPattern: ({ url }) => url.pathname.startsWith('/api/produtos') || url.pathname.startsWith('/api/cantinas'),

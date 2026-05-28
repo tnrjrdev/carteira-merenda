@@ -90,6 +90,19 @@
             <artifactId>google-api-client</artifactId>
             <version>2.2.0</version>
         </dependency>
+
+        <!-- Firebase Admin (FCM) — push real quando merenda.push.enabled=true e credenciais configuradas -->
+        <dependency>
+            <groupId>com.google.firebase</groupId>
+            <artifactId>firebase-admin</artifactId>
+            <version>9.3.0</version>
+        </dependency>
+
+        <!-- Flyway — migrações versionadas (com baseline para banco existente) -->
+        <dependency>
+            <groupId>org.flywaydb</groupId>
+            <artifactId>flyway-core</artifactId>
+        </dependency>
     </dependencies>
 
     <build>
