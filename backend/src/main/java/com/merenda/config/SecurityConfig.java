@@ -94,7 +94,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/health", "/api/health/**").permitAll()
                         .requestMatchers("/h2-console/**").permitAll()
                         .requestMatchers("/api/cantinas/publicas").permitAll()
-                        .requestMatchers("/api/webhooks/mercadopago/**").permitAll()
+                        .requestMatchers("/api/webhooks/mercadopago", "/api/webhooks/mercadopago/**").permitAll()
                         .requestMatchers("/api/lgpd/politica").permitAll()
                         .anyRequest().authenticated())
                 .authenticationProvider(authenticationProvider())

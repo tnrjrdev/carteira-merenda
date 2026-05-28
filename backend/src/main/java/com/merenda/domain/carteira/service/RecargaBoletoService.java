@@ -16,6 +16,7 @@ import com.merenda.infrastructure.gateway.BoletoGateway;
 import com.merenda.infrastructure.gateway.CobrancaBoleto;
 import com.merenda.infrastructure.gateway.SimulatedBoletoGateway;
 import com.merenda.infrastructure.gateway.StatusPagamento;
+import com.merenda.service.NotificacaoService;
 
 import com.merenda.config.exception.BusinessException;
 import com.merenda.config.exception.NotFoundException;
@@ -111,6 +112,19 @@ public class RecargaBoletoService {
         recargaRepository.findByExternalId(externalId).ifPresent(r -> {
             if (r.getStatus() == StatusPagamento.PENDENTE) aplicarStatus(r, StatusPagamento.APROVADO);
         });
+    }
+
+    /** Chamado pelo webhook do gateway externo (sem autenticação de usuário). */
+    @Transactional
+    public void processarNotificacaoExterna(String externalId) {
+        recargaRepository.findByExternalId(externalId).ifPresentOrElse(r -> {
+            if (r.getStatus() != StatusPagamento.PENDENTE) {
+                log.info("Boleto {} já processado com status {}", externalId, r.getStatus());
+                return;
+            }
+            StatusPagamento atual = gateway.consultarStatus(externalId);
+            if (atual != StatusPagamento.PENDENTE) aplicarStatus(r, atual);
+        }, () -> log.warn("RecargaBoleto com externalId={} não encontrada", externalId));
     }
 
     private void aplicarStatus(RecargaPendente r, StatusPagamento novo) {

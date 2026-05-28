@@ -80,10 +80,25 @@ public class GlobalExceptionHandler {
                 "Serviço temporariamente indisponível. Tente novamente em instantes ou contate o suporte.");
     }
 
+    /** Erros propagados por integrações externas (Mercado Pago, Firebase, etc) usam IllegalStateException. */
+    @ExceptionHandler(IllegalStateException.class)
+    public ResponseEntity<Map<String, Object>> integracaoExterna(IllegalStateException e) {
+        log.warn("Erro em integração externa: {}", e.getMessage());
+        return build(HttpStatus.BAD_GATEWAY,
+                e.getMessage() == null ? "Falha na integração externa" : e.getMessage());
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<Map<String, Object>> generic(Exception e) {
         log.error("Erro nao tratado", e);
-        return build(HttpStatus.INTERNAL_SERVER_ERROR, "Erro interno. Tente novamente em instantes.");
+        Map<String, Object> body = new HashMap<>();
+        body.put("timestamp", LocalDateTime.now());
+        body.put("status", 500);
+        body.put("message", "Erro interno. Tente novamente em instantes.");
+        // Em dev, expor a causa raiz para facilitar debug
+        body.put("exception", e.getClass().getSimpleName());
+        body.put("detail", e.getMessage());
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(body);
     }
 
     private ResponseEntity<Map<String, Object>> build(HttpStatus status, String message) {
