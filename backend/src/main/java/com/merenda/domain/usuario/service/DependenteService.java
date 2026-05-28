@@ -29,6 +29,7 @@ import java.math.BigDecimal;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.Period;
 import java.time.LocalTime;
 import java.time.temporal.TemporalAdjusters;
 import java.util.List;
@@ -59,6 +60,15 @@ public class DependenteService {
         if (usuarioRepository.existsByEmail(req.email())) {
             throw new BusinessException("Já existe conta para este email");
         }
+
+        // COPPA: estudantes < 13 só podem ser cadastrados com verificação parental explícita
+        boolean coppa = req.dataNascimento() != null
+                && Period.between(req.dataNascimento(), LocalDate.now()).getYears() < 13;
+        if (coppa && (req.verificacaoParental() == null || !req.verificacaoParental())) {
+            throw new BusinessException(
+                    "Estudantes menores de 13 anos exigem verificação parental explícita do responsável (COPPA).");
+        }
+
         Usuario estudante = Usuario.builder()
                 .nome(req.nome())
                 .email(req.email().toLowerCase().trim())
@@ -72,6 +82,12 @@ public class DependenteService {
                 .consentimentoVersao(responsavel.getConsentimentoVersao())
                 .ativo(true)
                 .build();
+        if (coppa) {
+            estudante.setVerificacaoParentalEm(LocalDateTime.now());
+            estudante.setVerificacaoParentalMetodo("cadastro_responsavel");
+            estudante.setTelefone(null);
+            estudante.setCpf(null);
+        }
         usuarioRepository.save(estudante);
         Carteira c = Carteira.builder()
                 .estudante(estudante)

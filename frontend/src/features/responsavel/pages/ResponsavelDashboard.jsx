@@ -156,9 +156,21 @@ export default function ResponsavelDashboard() {
   const { dependentes, loading, err, load, setErr } = useDependentes();
   const [showForm, setShowForm] = useState(false);
   
-  const [novo, setNovo] = useState({ nome: '', email: '', senha: '' });
+  const [novo, setNovo] = useState({ nome: '', email: '', senha: '', dataNascimento: '', verificacaoParental: false });
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const idade = (() => {
+    if (!novo.dataNascimento) return null;
+    const d = new Date(novo.dataNascimento);
+    if (isNaN(d)) return null;
+    const hoje = new Date();
+    let i = hoje.getFullYear() - d.getFullYear();
+    const m = hoje.getMonth() - d.getMonth();
+    if (m < 0 || (m === 0 && hoje.getDate() < d.getDate())) i--;
+    return i;
+  })();
+  const exigeCoppa = idade != null && idade < 13;
 
   const validate = () => V.validateForm({
     nome: [
@@ -174,6 +186,11 @@ export default function ResponsavelDashboard() {
       () => V.required(novo.senha, 'Senha'),
       () => V.senhaForte(novo.senha),
     ],
+    verificacaoParental: [
+      () => exigeCoppa && !novo.verificacaoParental
+          ? 'Confirme a verificação parental (COPPA) para menores de 13 anos'
+          : null,
+    ],
   });
 
   const criar = async (e) => {
@@ -182,12 +199,18 @@ export default function ResponsavelDashboard() {
     const errs = validate();
     setErrors(errs);
     if (Object.keys(errs).length > 0) return;
-    
+
     setIsSubmitting(true);
     try {
-      await api.post('/dependentes', novo);
+      await api.post('/dependentes', {
+        nome: novo.nome,
+        email: novo.email,
+        senha: novo.senha,
+        dataNascimento: novo.dataNascimento || null,
+        verificacaoParental: novo.verificacaoParental,
+      });
       setShowForm(false);
-      setNovo({ nome: '', email: '', senha: '' });
+      setNovo({ nome: '', email: '', senha: '', dataNascimento: '', verificacaoParental: false });
       setErrors({});
       await load();
     } catch (e) {
@@ -198,7 +221,8 @@ export default function ResponsavelDashboard() {
   };
 
   const change = (k) => (e) => {
-    setNovo((s) => ({ ...s, [k]: e.target.value }));
+    const v = e.target.type === 'checkbox' ? e.target.checked : e.target.value;
+    setNovo((s) => ({ ...s, [k]: v }));
     if (errors[k]) setErrors({ ...errors, [k]: null });
   };
 
@@ -237,7 +261,32 @@ export default function ResponsavelDashboard() {
             <Field label="Senha provisória" error={errors.senha} hint="O aluno pode alterar depois">
               <input className="input h-12" type="password" placeholder="Mínimo 6 caracteres" value={novo.senha} onChange={change('senha')} aria-required="true" />
             </Field>
+            <Field label="Data de nascimento" hint="Opcional — usado para regras COPPA (< 13 anos)">
+              <input className="input h-12" type="date" value={novo.dataNascimento} onChange={change('dataNascimento')} />
+            </Field>
           </div>
+
+          {exigeCoppa && (
+            <div className="bg-amber-50 border border-amber-300 rounded-xl p-4 space-y-2 animate-slide-up">
+              <div className="flex items-center gap-2 text-amber-800 font-semibold text-sm">
+                <span>⚠</span> Verificação parental (COPPA)
+              </div>
+              <p className="text-xs text-amber-700 leading-snug">
+                Como o estudante tem menos de 13 anos ({idade} anos), aplicamos proteções extras:
+                não coletamos telefone/CPF próprio dele e os dados ficam vinculados à sua conta.
+                Confirme abaixo que você é o responsável legal e autoriza expressamente a criação da conta.
+              </p>
+              <label className="flex items-start gap-2 text-sm text-amber-900 cursor-pointer">
+                <input type="checkbox" className="mt-1" checked={novo.verificacaoParental}
+                       onChange={change('verificacaoParental')} />
+                <span>Sou o responsável legal e autorizo o cadastro desta criança no Merenda.</span>
+              </label>
+              {errors.verificacaoParental && (
+                <div className="text-xs text-red-600">{errors.verificacaoParental}</div>
+              )}
+            </div>
+          )}
+
           <div className="flex justify-end pt-4 border-t border-slate-100">
             <button className="btn-primary px-8 h-12 text-lg shadow-glow" disabled={isSubmitting}>
               {isSubmitting ? 'Cadastrando...' : 'Criar Conta do Aluno'}

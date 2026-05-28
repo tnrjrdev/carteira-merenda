@@ -29,7 +29,10 @@ public class DependenteDto {
             LocalDate dataNascimento,
 
             @Size(max = 500, message = "Lista de alergias muito longa")
-            String alergias) {}
+            String alergias,
+
+            /** COPPA: responsável confirma verificação parental para estudantes &lt; 13 anos. */
+            Boolean verificacaoParental) {}
 
     public record Resumo(
             Long id,

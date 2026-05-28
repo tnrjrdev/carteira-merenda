@@ -60,6 +60,12 @@ public class Usuario {
     @Column(length = 20)
     private String consentimentoVersao;
 
+    /** COPPA: verificação parental explícita do responsável para estudantes &lt; 13 anos. */
+    private LocalDateTime verificacaoParentalEm;
+
+    @Column(length = 30)
+    private String verificacaoParentalMetodo;
+
     @com.fasterxml.jackson.annotation.JsonIgnore
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "responsavel_id")
