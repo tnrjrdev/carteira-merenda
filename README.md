@@ -1,146 +1,101 @@
 # Merenda — Carteira Digital Escolar
 
-Carteira digital (e-wallet) para crianças e adolescentes, focada em **acabar com a fila do recreio** e dar **controle total aos responsáveis** sobre a alimentação na escola. Os pais recarregam por **Pix**, os alunos pagam por **QR Code** e a cantina vende sem dinheiro físico.
-
-- **Backend:** Spring Boot 3.2 + Spring Security (JWT + Google OAuth 2.0) + JPA + H2 (dev) / Postgres (prod) + Mercado Pago Pix
-- **Frontend:** React 18 + Vite + Tailwind CSS + React Router + `@react-oauth/google`
-- **Deploy:** Vercel (frontend) + Render (backend + Postgres)
+Carteira digital para estudantes, com o responsável recarregando por Pix/cartão/boleto e o aluno pagando na cantina por QR Code ou NFC. Backend Spring Boot, frontend React, deploy em Render + Vercel.
 
 ---
 
-## Sumário
+## Visão geral
 
-- [Funcionalidades](#funcionalidades)
-- [Estrutura do projeto](#estrutura-do-projeto)
-- [Como rodar local](#como-rodar-local)
-- [Contas de teste](#contas-de-teste)
-- [Endpoints REST](#endpoints-rest)
-- [Variáveis de ambiente](#variáveis-de-ambiente)
-- [Login com Google](#login-com-google)
-- [Integração Pix (Mercado Pago)](#integração-pix-mercado-pago)
-- [Webhooks (integração ERP)](#webhooks-integração-erp)
-- [Deploy](#deploy)
-- [Migrations e schema em produção](#migrations-e-schema-em-produção)
-- [Roadmap](#roadmap)
-- [Licença](#licença)
+**Problema.** Crianças e adolescentes que levam dinheiro para a escola enfrentam três atritos típicos:
 
----
+- **Filas no recreio** — pagar em dinheiro é lento; o recreio é curto.
+- **Pais sem visibilidade** — não sabem o que o filho comeu nem quanto gastou.
+- **Cantina gerenciando troco** — fechamento de caixa manual e risco de inadimplência (fiado).
 
-## Funcionalidades
+**Abordagem.** Um e-wallet específico para o contexto escolar, com três perfis:
 
-### Responsável
-- Cadastro de dependentes (estudantes) e atualização de perfil (data de nascimento, alergias)
-- Recarga manual e **Recarga Pix via Mercado Pago** com QR Code dinâmico (status atualizado em tempo real)
-- **Recarga via boleto** e **cartão de crédito** (gateways plugáveis, taxa de conveniência configurável)
-- **Mesada programada** com recorrência (cartão de crédito)
-- Limites diário e semanal de gastos
-- **Bloqueio nutricional** por categoria (refrigerantes, frituras, alérgenos…)
-- Extrato detalhado com itens de cada compra
+- **Responsável** — recarrega a carteira do filho (Pix, cartão ou boleto), define limites diários/semanais, bloqueia categorias (ex: refrigerantes) ou alérgenos, recebe notificação a cada compra.
+- **Estudante** — vê o saldo no app, gera um QR Code ou token NFC com TTL curto (90s / 30s) e mostra/encosta no PDV da cantina.
+- **Cantina** — opera o PDV (leitor de QR ou NFC), cadastra cardápio e estoque, vê relatórios e fechamento de caixa.
 
-### Estudante
-- Saldo em tempo real
-- **QR Code dinâmico de uso único** (expira em 90s) para pagar na cantina
-- **Token NFC** para pulseiras/tags
-- **Pré-venda / fura-fila** (pedido antes do recreio com fila de preparo)
-- **Gamificação** (metas, progresso, conquistas)
-- Cardápio da cantina
-- Extrato pessoal
-
-### Cantina
-- Cadastro de produtos por categoria
-- **PDV** com busca, filtro por categoria, carrinho e cobrança via QR/NFC
-- **Painel** com vendas de hoje, do mês e últimas transações
-- **Fila de pedidos** (pré-venda) com mudança de status
-- **Fechamento de caixa** com prévia e snapshot histórico
-- **Faturas** (mensalidade SaaS) por cantina
-- **Relatórios avançados**: KPIs (receita, ticket médio, alunos ativos), top 10 produtos, vendas por categoria, série diária de receita, **export CSV**
-- **Webhooks** com assinatura HMAC-SHA256 para integração ERP
-- Aplicação automática de bloqueios, limites e saldo na cobrança
-
-### Admin / Rede
-- **Painel agregado** com KPIs de todas as cantinas (receita período/hoje, transações, alunos ativos)
-- Gestão de **planos** (`ESSENCIAL` / `ESCOLA` / `REDE`) e cota `maxAlunos` por cantina
-
-### Notificações
-- **Notificações in-app** com stream SSE em tempo real (`/api/notificacoes/stream`)
-- Registro de **device token** para push (FCM, modo mock por padrão)
-
-### LGPD / ECA
-- Consentimento explícito de política de privacidade no cadastro, com versão registrada
-- **Exportação dos dados do usuário** (`GET /api/lgpd/exportar`)
-- **Direito ao apagamento** (`DELETE /api/lgpd/conta`)
-- Data de nascimento exigida pela LGPD/ECA (identificação de menor)
-
-### Segurança
-- JWT (HMAC-SHA256, expiração configurável)
-- **Login social via Google OAuth 2.0** (verificação do ID token no servidor com fallback `tokeninfo`)
-- BCrypt para senhas
-- Tokens de pagamento de uso único
-- Validação de saldo, limites e bloqueios em transação atômica
-- CORS configurável por env var
-- Health check público dedicado em `/api/health`
-- Handler global de exceções com mensagens amigáveis (sem vazar SQL/stack ao cliente)
+Plus: uma camada SaaS B2B2C (planos de mensalidade para a cantina + take rate por transação) e um painel admin de rede.
 
 ---
 
-## Estrutura do projeto
+## Stack técnica
 
-```
-carteira-merenda/
-├── backend/                     # Spring Boot (porta 8080 em dev / 10000 no Render)
-│   ├── src/main/java/com/merenda/
-│   │   ├── config/              # Security, DataSeeder, PagamentoConfig
-│   │   ├── controller/          # Endpoints REST
-│   │   ├── dto/                 # DTOs (records)
-│   │   ├── exception/           # Handler global
-│   │   ├── model/               # Entidades JPA
-│   │   ├── repository/          # Spring Data JPA
-│   │   ├── security/            # JWT, UserDetails
-│   │   └── service/
-│   │       └── gateway/         # PagamentoGateway + Simulated + MercadoPago
-│   ├── src/main/resources/
-│   │   ├── application.properties
-│   │   └── application-prod.properties
-│   ├── Dockerfile
-│   └── .env.example
-├── frontend/                    # React + Vite (porta 5173)
-│   ├── src/
-│   │   ├── components/          # Layout, Field, PixModal
-│   │   ├── context/             # AuthContext
-│   │   ├── pages/               # Landing, Login, Dashboards, PDV, Relatórios, etc.
-│   │   ├── services/            # axios api
-│   │   └── utils/               # format, validation
-│   ├── public/                  # hero-estudante.jpg / .svg
-│   ├── vercel.json
-│   └── .env.example
-├── render.yaml                  # Blueprint Render (Postgres + Web Service)
-└── merenda_prd.md               # Documento de requisitos do produto
-```
+### Backend (`/backend`)
+
+| Item | Escolha |
+|---|---|
+| Linguagem | Java 17 |
+| Framework | Spring Boot 3.2 (Web, Data JPA, Security, Validation) |
+| Build | Maven (com Maven Wrapper — `./mvnw`) |
+| Banco — dev | H2 file (`./data/merendadb`) |
+| Banco — prod | PostgreSQL (Render Postgres) |
+| Migrations | Flyway (modo baseline; schema gerenciado por Hibernate `ddl-auto=update`) |
+| Auth | JWT (`jjwt` 0.12) + Google OAuth 2.0 (`google-api-client`) |
+| Pagamentos | Mercado Pago — Pix, Cartão (Bricks), Boleto, Customer/Cards API (cobrança recorrente) |
+| Webhook MP | Validação HMAC-SHA256 + roteamento por método (pix/boleto) |
+| Push | Firebase Admin SDK 9.3 (opcional via env) |
+| Notificações in-app | Server-Sent Events (SSE) |
+| Container | Docker multi-stage (`maven:3.9-eclipse-temurin-17` → `eclipse-temurin:17-jre`) |
+
+### Frontend (`/frontend`)
+
+| Item | Escolha |
+|---|---|
+| Framework | React 18 + Vite 5 |
+| Estilo | Tailwind CSS 3 |
+| Roteamento | React Router 6 |
+| HTTP | axios |
+| OAuth Google | `@react-oauth/google` |
+| Mercado Pago | `@mercadopago/sdk-react` (CardPayment Brick) |
+| Push | `firebase` (Web SDK — opcional) |
+| QR Code | `qrcode.react` (geração) + `@zxing/browser` (leitura PDV) |
+| NFC | Web NFC API nativa (Android + Chrome + HTTPS) |
+| PWA | `vite-plugin-pwa` + service worker próprio para FCM em background |
+
+### Deploy
+
+- **Backend:** Render Web Service (Docker) + Render Postgres
+- **Frontend:** Vercel (build estático + CDN)
+- Blueprint Render disponível em [`render.yaml`](./render.yaml)
 
 ---
 
-## Como rodar local
+## Como rodar o projeto
 
 ### Pré-requisitos
-- Java 17+
-- Maven 3.8+
-- Node.js 18+ e npm
 
-### 1. Backend
+- JDK 17+
+- Node.js 20+ e npm
+- (Opcional) Docker e Docker Compose
+
+### Sem Docker — dev local
+
+**1. Backend** (porta 8080, banco H2 em arquivo)
 
 ```bash
 cd backend
-mvn spring-boot:run
+./mvnw spring-boot:run
 ```
 
-API disponível em **http://localhost:8080**.
+No Windows PowerShell:
+```powershell
+cd backend
+.\mvnw.cmd spring-boot:run
+```
 
-- Console H2: http://localhost:8080/h2-console
-  - JDBC URL: `jdbc:h2:file:./data/merendadb`
-  - Usuário: `sa` (sem senha)
-- Dados persistem em `backend/data/` (apagar a pasta = reset completo).
+Os defaults em `application.properties` funcionam sem env vars — o app sobe em modo simulado (sem cobrança real) com banco H2 local em `./data/merendadb`. Console H2 disponível em http://localhost:8080/h2-console.
 
-### 2. Frontend
+Para usar Mercado Pago de verdade, crie `backend/src/main/resources/application-local.properties` (gitignored) e rode com perfil `local`:
+```powershell
+$env:SPRING_PROFILES_ACTIVE="local"
+.\mvnw.cmd spring-boot:run
+```
+
+**2. Frontend** (porta 5173, proxy automático `/api/*` → `localhost:8080`)
 
 ```bash
 cd frontend
@@ -148,388 +103,247 @@ npm install
 npm run dev
 ```
 
-Acesse **http://localhost:5173**. O Vite faz proxy de `/api/*` para `http://localhost:8080`.
+Acesse http://localhost:5173. Login com qualquer um dos usuários seed:
 
----
+| Email | Senha | Papel |
+|---|---|---|
+| `maria@merenda.com` | `123456` | Responsável |
+| `joao@merenda.com` | `123456` | Estudante |
+| `cantina@merenda.com` | `123456` | Cantina |
+| `admin@merenda.com` | `admin123` | Admin |
 
-## Contas de teste
+### Com Docker — apenas backend
 
-Criadas pelo `DataSeeder` no primeiro start (apenas se o banco estiver vazio):
+O backend tem `Dockerfile` multi-stage pronto. O frontend é build estático e roda direto na Vercel/qualquer CDN.
 
-| Perfil       | Email                 | Senha    | Notas |
-| ------------ | --------------------- | -------- | ----- |
-| Responsável  | maria@merenda.com     | 123456   | Tem 1 dependente vinculado |
-| Estudante    | joao@merenda.com      | 123456   | Saldo R$ 50,00 · limite diário R$ 25,00 |
-| Cantina      | cantina@merenda.com   | 123456   | Vinculado à "Cantina Central" |
-| Admin        | admin@merenda.com     | admin123 | Acesso ao painel da rede |
-
----
-
-## Endpoints REST
-
-Todos os endpoints (exceto os marcados como **público**) exigem header `Authorization: Bearer <token>`.
-
-### Auth & perfil
-```
-POST   /api/auth/login                                     público
-POST   /api/auth/register                                  público (RESPONSAVEL ou CANTINA)
-POST   /api/auth/google-login                              público — login social
-POST   /api/auth/google-register                           público — cadastro social (com aceite LGPD)
-GET    /api/me                                             dados do usuário logado
-GET    /api/health                                         público — health check
+```bash
+cd backend
+docker build -t merenda-backend .
+docker run --rm -p 8080:8080 \
+  -e SPRING_PROFILES_ACTIVE=prod \
+  -e DATABASE_URL="jdbc:postgresql://host.docker.internal:5432/merenda" \
+  -e DB_USER=postgres -e DB_PASS=postgres \
+  -e JWT_SECRET="$(openssl rand -base64 64)" \
+  -e CORS_ORIGINS=http://localhost:5173 \
+  merenda-backend
 ```
 
-### Responsável & Dependentes
-```
-POST   /api/dependentes                                    cria estudante (RESPONSAVEL)
-GET    /api/dependentes                                    lista filhos do responsável
-PUT    /api/dependentes/{id}/limites                       atualiza limites diário/semanal
-PUT    /api/dependentes/{id}/perfil                        atualiza data nasc. / alergias
-```
-
-### Carteira & Recarga
-```
-GET    /api/carteira/me                                    saldo do estudante logado
-GET    /api/carteira/me/extrato                            extrato do estudante logado
-GET    /api/carteira/estudante/{id}                        saldo (responsável/admin)
-GET    /api/carteira/estudante/{id}/extrato                extrato (responsável/admin)
-POST   /api/carteira/recarga                               recarga manual
-
-POST   /api/carteira/recarga-pix                           inicia cobrança Pix (gateway ativo)
-GET    /api/carteira/recarga-pix/{id}                      consulta status
-POST   /api/carteira/recarga-pix/{externalId}/aprovar-simulado   DEV: aprova manualmente
-
-POST   /api/carteira/recarga-boleto                        inicia cobrança boleto
-GET    /api/carteira/recarga-boleto/{id}                   consulta status
-POST   /api/carteira/recarga-boleto/{externalId}/aprovar-simulado   DEV: aprova manualmente
-
-POST   /api/carteira/recarga-cartao                        recarga via cartão de crédito (com taxa)
-```
-
-### Mesada programada
-```
-GET    /api/mesadas/estudante/{estudanteId}                consulta configuração da mesada
-PUT    /api/mesadas/estudante/{estudanteId}                cria/atualiza recorrência
-DELETE /api/mesadas/estudante/{estudanteId}                cancela mesada
-POST   /api/mesadas/executar-agora                         dispara cobranças vencidas (ADMIN)
-```
-
-### Cantinas, Produtos & Categorias
-```
-GET    /api/cantinas/publicas                              público — lista cantinas ativas
-GET    /api/cantinas                                       lista todas
-GET    /api/cantinas/{id}                                  detalhes
-GET    /api/cantinas/{id}/uso                              cota/plano (alunos ativos 30d)
-PUT    /api/cantinas/{id}/plano                            atualiza plano (ADMIN)
-
-GET    /api/categorias                                     lista categorias
-GET    /api/produtos/cantina/{id}                          cardápio
-POST   /api/produtos                                       cria produto (CANTINA)
-PUT    /api/produtos/{id}                                  atualiza
-DELETE /api/produtos/{id}                                  remove
-```
-
-### Pagamentos (PDV)
-```
-POST   /api/pagamentos/token                               estudante gera QR
-POST   /api/pagamentos/token-nfc                           estudante gera token NFC
-POST   /api/pagamentos/cobrar                              cantina cobra com token + itens
-```
-
-### Pedidos (pré-venda / fura-fila)
-```
-POST   /api/pedidos                                        estudante faz pedido com itens
-GET    /api/pedidos/meus                                   lista pedidos do estudante
-POST   /api/pedidos/{id}/cancelar                          cancela pedido
-GET    /api/pedidos/fila                                   fila de preparo (CANTINA)
-PUT    /api/pedidos/{id}/status                            avança status (CANTINA)
-```
-
-### Gamificação
-```
-GET    /api/gamificacao/me                                 metas e progresso do estudante logado
-GET    /api/gamificacao/estudante/{id}                     metas e progresso (responsável/admin)
-POST   /api/gamificacao/metas                              cria meta (responsável)
-POST   /api/gamificacao/metas/{id}/progresso               atualiza progresso
-```
-
-### Bloqueios nutricionais
-```
-GET    /api/bloqueios/estudante/{id}                       lista categorias bloqueadas
-POST   /api/bloqueios/estudante/{eId}/categoria/{cId}      bloqueia
-DELETE /api/bloqueios/estudante/{eId}/categoria/{cId}      desbloqueia
-```
-
-### Painel da Cantina + Relatórios + Caixa + Faturas
-```
-GET    /api/cantina/painel/resumo                          vendas hoje/mês + últimas 20
-GET    /api/cantina/painel/relatorios?dias=30              KPIs, top produtos, categorias, série diária
-GET    /api/cantina/painel/exportar?dias=30                CSV das transações no período
-
-GET    /api/cantina/caixa                                  histórico de fechamentos
-GET    /api/cantina/caixa/previa                           prévia do fechamento atual
-POST   /api/cantina/caixa/fechar                           fecha o caixa (snapshot)
-
-GET    /api/faturas/cantina                                faturas da cantina do operador logado
-GET    /api/faturas/cantina/{cantinaId}                    faturas (ADMIN)
-POST   /api/faturas/{id}/pagar                             registra pagamento
-```
-
-### Notificações
-```
-GET    /api/notificacoes                                   lista paginada
-GET    /api/notificacoes/nao-lidas                         contagem
-POST   /api/notificacoes/{id}/lida                         marca como lida
-POST   /api/notificacoes/lidas                             marca todas como lidas
-GET    /api/notificacoes/stream                            público (token via query) — SSE em tempo real
-
-POST   /api/push/registrar                                 registra device token (FCM)
-```
-
-### LGPD
-```
-GET    /api/lgpd/politica                                  público — versão da política vigente
-POST   /api/lgpd/aceitar                                   registra aceite (autenticado)
-GET    /api/lgpd/exportar                                  exporta dados do usuário (JSON)
-DELETE /api/lgpd/conta                                     direito ao apagamento (anonimiza/exclui)
-```
-
-### Webhooks (integração ERP)
-```
-GET    /api/webhooks                                       lista webhooks da cantina
-POST   /api/webhooks                                       cria webhook (gera secret)
-DELETE /api/webhooks/{id}                                  remove
-```
-
-### Admin (rede)
-```
-GET    /api/admin/rede/resumo?dias=30                      agregado de todas as cantinas (ADMIN)
-```
-
-### Webhook do Mercado Pago
-```
-POST   /api/webhooks/mercadopago/pix                       público — recebe notificações do MP
-```
+> **Sem frontend no Docker** porque o build de produção (`npm run build`) gera estáticos em `frontend/dist/` — não há necessidade de container em runtime. Em dev local, use `npm run dev` direto.
 
 ---
 
 ## Variáveis de ambiente
 
-### Backend ([`backend/.env.example`](backend/.env.example))
+Veja [`backend/.env.example`](./backend/.env.example) e [`frontend/.env.example`](./frontend/.env.example) para a lista completa documentada. Resumo das obrigatórias:
 
-| Variável | Default | Descrição |
-|---|---|---|
-| `SPRING_PROFILES_ACTIVE` | (vazio) | Use `prod` para ativar Postgres e desabilitar H2 console |
-| `SPRING_JPA_HIBERNATE_DDL_AUTO` | `update` (prod) | Em prod do Render está fixado em `none` por segurança. Veja [Migrations e schema em produção](#migrations-e-schema-em-produção) |
-| `PORT` | `8080` | Porta HTTP. O Render injeta automaticamente (10000). |
-| `JWT_SECRET` | (chave demo) | Base64. Gere com `openssl rand -base64 64` |
-| `JWT_EXPIRATION_MS` | `86400000` | 24h |
-| `CORS_ORIGINS` | `http://localhost:5173` | URLs separadas por vírgula. Use `*` em dev |
-| `DB_HOST` / `DB_PORT` / `DB_NAME` / `DB_USER` / `DB_PASS` | — | Postgres (profile `prod`) |
-| `DATABASE_URL` | — | Alternativa: URL JDBC completa |
-| `GOOGLE_CLIENT_ID` | (client demo) | Client ID OAuth do Google Cloud. **Precisa ser idêntico** ao `VITE_GOOGLE_CLIENT_ID` |
-| `LGPD_POLITICA_VERSAO` | `2026-01-01` | Versão registrada no consentimento do usuário |
-| `PUSH_ENABLED` | `false` | `true` para usar FCM real; por padrão notificações são in-app/SSE (mock) |
-| `PAGAMENTO_GATEWAY` | `simulated` | `simulated` ou `mercadopago` (define o gateway Pix) |
-| `CARTAO_TAXA_CONVENIENCIA` | `0.0499` | Taxa repassada ao pagador em recargas via cartão (4,99%) |
-| `MERCADOPAGO_ACCESS_TOKEN` | — | Obrigatório se gateway = `mercadopago` |
-| `MERCADOPAGO_WEBHOOK_SECRET` | — | Para validar assinatura dos webhooks do MP |
+**Backend (prod):**
+- `DATABASE_URL`, `DB_USER`, `DB_PASS` — Postgres
+- `JWT_SECRET` — gere com `openssl rand -base64 64`
+- `CORS_ORIGINS` — URLs da Vercel separadas por vírgula
+- `GOOGLE_CLIENT_ID` — Client ID OAuth do Google Cloud
 
-### Frontend ([`frontend/.env.example`](frontend/.env.example))
+**Backend (opcionais — habilitam integrações reais):**
+- `PAGAMENTO_GATEWAY=mercadopago` + `MERCADOPAGO_ACCESS_TOKEN` + `MERCADOPAGO_PUBLIC_KEY` + `MERCADOPAGO_WEBHOOK_SECRET`
+- `PUSH_ENABLED=true` + `FIREBASE_CREDENTIALS_JSON` (service account inline)
 
-| Variável | Default | Descrição |
-|---|---|---|
-| `VITE_API_URL` | (vazio = proxy do Vite) | URL pública do backend em produção, ex.: `https://merenda-backend.onrender.com/api` |
-| `VITE_GOOGLE_CLIENT_ID` | — | Client ID OAuth do Google Cloud. **Precisa ser idêntico** ao `GOOGLE_CLIENT_ID` do backend. Em build na Vercel, configure em Project Settings → Environment Variables (variáveis em `env:` do GitHub Action não são repassadas ao build remoto) |
+**Frontend:**
+- `VITE_GOOGLE_CLIENT_ID` — mesmo Client ID do backend
+- `VITE_MERCADOPAGO_PUBLIC_KEY` — opcional (sem ele o modal de cartão cai em mock)
+- `VITE_FIREBASE_*` (7 variáveis) — opcionais para FCM real
 
 ---
 
-## Login com Google
+## Principais endpoints
 
-A aplicação suporta autenticação social via **Google Identity Services**:
+A API tem 27 controllers; abaixo, os caminhos mais usados (todos sob `/api`). Endpoints autenticados exigem header `Authorization: Bearer <jwt>`.
 
-- O frontend usa `@react-oauth/google` para emitir um **ID token** assinado pelo Google.
-- O backend verifica o token em duas camadas:
-  1. `GoogleIdTokenVerifier` oficial do `google-api-client` (assinatura, expiração, `aud`).
-  2. Fallback via endpoint `tokeninfo` do Google, se a primeira verificação retornar `null` (lida com ambientes onde o download das chaves públicas demora ou falha).
+### Autenticação
 
-### Configuração
-
-1. Em [console.cloud.google.com](https://console.cloud.google.com) → APIs & Services → Credentials → **OAuth 2.0 Client ID** (Web).
-2. **Authorized JavaScript origins:** adicione `http://localhost:5173` e a URL da Vercel.
-3. Copie o Client ID e configure:
-   - Backend (Render): `GOOGLE_CLIENT_ID=<seu-client-id>`
-   - Frontend (Vercel → Project Settings → Environment Variables): `VITE_GOOGLE_CLIENT_ID=<mesmo-client-id>`
-4. Os dois precisam ser **exatamente o mesmo Client ID** — o `aud` do token emitido pelo frontend é comparado com o `googleClientId` do backend; qualquer divergência rejeita o login.
-
-### Endpoints
-- `POST /api/auth/google-login` — autentica usuário já cadastrado (precisa de conta com o mesmo email)
-- `POST /api/auth/google-register` — cadastra novo usuário, exige `aceitaLgpd: true` no body
-
----
-
-## Integração Pix (Mercado Pago)
-
-O backend usa um adaptador `PagamentoGateway` com duas implementações:
-
-| Gateway | Quando usar | Cobra? |
+| Método | Rota | Descrição |
 |---|---|---|
-| `simulated` (default) | desenvolvimento, demo | não — gera QR Code fake e expõe botão "Simular aprovação" |
-| `mercadopago` | sandbox e produção | sandbox grátis; produção tem taxa por transação (sem mensalidade) |
+| POST | `/api/auth/register` | Cria conta de responsável (com consentimento LGPD) |
+| POST | `/api/auth/login` | Login email/senha, retorna JWT |
+| POST | `/api/auth/google-login` | Login via Google ID token |
+| POST | `/api/auth/google-register` | Registro via Google |
+| GET | `/api/me` | Dados do usuário autenticado |
 
-### Ativar Mercado Pago
+### Carteira e recargas
 
-1. Crie uma conta em [mercadopago.com.br/developers](https://www.mercadopago.com.br/developers/panel/app).
-2. Crie uma aplicação → copie o **Access Token** (use o `TEST-...` para sandbox primeiro).
-3. Defina as env vars no Render:
-   ```
-   PAGAMENTO_GATEWAY=mercadopago
-   MERCADOPAGO_ACCESS_TOKEN=APP_USR-...
-   MERCADOPAGO_WEBHOOK_SECRET=<gere uma string secreta>
-   ```
-4. No painel do Mercado Pago → **Notificações → Webhooks**, configure:
-   - URL: `https://merenda-backend.onrender.com/api/webhooks/mercadopago/pix`
-   - Eventos: **Payments**
-   - Cole o mesmo `MERCADOPAGO_WEBHOOK_SECRET` que você definiu no Render.
+| Método | Rota | Descrição |
+|---|---|---|
+| GET | `/api/carteira/me` | Saldo + limites + gasto hoje (estudante) |
+| GET | `/api/carteira/me/extrato` | Últimas transações |
+| GET | `/api/carteira/estudante/{id}` | Saldo do dependente (responsável) |
+| POST | `/api/carteira/recarga-pix` | Inicia cobrança Pix (retorna QR + copia-cola) |
+| GET | `/api/carteira/recarga-pix/{id}` | Polling de status |
+| POST | `/api/carteira/recarga-cartao` | Cobra cartão (token tokenizado no Brick MP) |
+| POST | `/api/carteira/recarga-boleto` | Gera boleto |
+| GET | `/api/carteira/auto-recarga/estudante/{id}` | Configuração de auto-recarga |
+| PUT | `/api/carteira/auto-recarga/estudante/{id}` | Configura auto-recarga + salva cartão |
 
-### Como funciona
+### Mesada
 
-1. O responsável clica em **Pagar via Pix QR** na tela do dependente.
-2. Backend chama `gateway.criarCobrancaPix(...)` → MP devolve QR + copia-e-cola.
-3. Modal exibe QR e faz **polling de status a cada 4s**.
-4. Quando o pagador conclui o Pix, o **MP envia webhook** para `/api/webhooks/mercadopago/pix`.
-5. Backend confirma com `GET /v1/payments/{id}` (defesa em profundidade), atualiza saldo da carteira e cria `Transacao` do tipo `RECARGA`. Tudo atômico.
-6. Frontend detecta a mudança no próximo polling e fecha o modal.
+| Método | Rota | Descrição |
+|---|---|---|
+| GET | `/api/mesadas/estudante/{id}` | Mesada vigente |
+| PUT | `/api/mesadas/estudante/{id}` | Cria/atualiza mesada (DIARIA/SEMANAL/QUINZENAL/MENSAL) |
+| POST | `/api/mesadas/estudante/{id}/cartao` | Vincula cartão para cobrança recorrente |
+| DELETE | `/api/mesadas/estudante/{id}/cartao` | Remove cartão |
+
+### Pagamento na cantina
+
+| Método | Rota | Descrição |
+|---|---|---|
+| POST | `/api/pagamentos/token` | Estudante gera token QR (TTL 90s) |
+| POST | `/api/pagamentos/token-nfc` | Estudante gera token NFC (TTL 30s) |
+| POST | `/api/pagamentos/cobrar` | Cantina cobra usando token + lista de itens |
+
+### Cantina (operação)
+
+| Método | Rota | Descrição |
+|---|---|---|
+| GET | `/api/produtos/cantina/{id}` | Cardápio (com filtro de disponibilidade) |
+| POST | `/api/produtos` | Cadastra produto (estoque + alérgenos + nutricional) |
+| GET | `/api/pedidos/fila` | Fila de pré-pedidos por status |
+| PUT | `/api/pedidos/{id}/status` | Avança status do pedido (PREPARANDO/PRONTO/ENTREGUE) |
+| GET | `/api/cantina/painel/resumo` | KPIs do dia |
+| GET | `/api/cantina/painel/relatorios?dias=30` | Vendas, top produtos, por categoria |
+| POST | `/api/cantina/caixa/fechar` | Fechamento de caixa |
+
+### Webhooks
+
+| Método | Rota | Descrição |
+|---|---|---|
+| POST | `/api/webhooks/mercadopago` | Recebe notificação do MP (HMAC validado); roteia pix/boleto |
+
+### Outros
+
+| Método | Rota | Descrição |
+|---|---|---|
+| GET | `/api/dependentes` | Lista filhos vinculados (responsável) |
+| POST | `/api/dependentes` | Cria dependente (bloqueia <13 sem verificação parental — COPPA) |
+| POST | `/api/coppa/estudante/{id}/verificar` | Registra verificação parental |
+| GET | `/api/notificacoes/stream` | SSE stream de notificações em tempo real |
+| GET | `/api/lgpd/exportar` | Exporta todos os dados do usuário (JSON) |
+| DELETE | `/api/lgpd/conta` | Anonimiza a conta (LGPD) |
+| GET | `/api/admin/rede/resumo?dias=30` | Painel admin de rede |
+| GET | `/api/health` | Health check (público) |
 
 ---
 
-## Webhooks (integração ERP)
+## Estrutura do projeto
 
-Cada cantina pode cadastrar URLs externas que serão notificadas em eventos como **compra realizada**. Útil para integrar com ERPs, planilhas de conciliação ou dashboards próprios.
-
-- Cadastro pela tela **Cantina → Integrações** ou via `POST /api/webhooks`.
-- A cada disparo, enviamos `POST` com `Content-Type: application/json` e os headers:
-  - `X-Merenda-Event: COMPRA_REALIZADA`
-  - `X-Merenda-Signature: sha256=<hex>` — HMAC-SHA256 do body com o `secret` exibido na criação.
-- Dispatcher é `@Async` — não impacta a latência da cobrança no PDV.
-- Falhas de entrega são registradas (`ultimoStatusHttp` no GET).
-
-Exemplo de validação em Node:
-```js
-const crypto = require('crypto');
-const esperado = crypto.createHmac('sha256', SECRET)
-  .update(rawBody)
-  .digest('hex');
-const assinado = req.headers['x-merenda-signature'].split('=')[1];
-const ok = crypto.timingSafeEqual(Buffer.from(esperado), Buffer.from(assinado));
+```
+.
+├── backend/
+│   ├── src/main/java/com/merenda/
+│   │   ├── config/           # SecurityConfig, PagamentoConfig, FirebaseConfig, exception/, security/
+│   │   ├── domain/           # Organizado por feature
+│   │   │   ├── bloqueio/     # Bloqueio nutricional e por categoria
+│   │   │   ├── cantina/      # Cantina, produtos, categorias, faturas, caixa
+│   │   │   ├── carteira/     # Saldo, recargas, mesada, auto-recarga, pagamento
+│   │   │   ├── gamificacao/  # Badges e metas
+│   │   │   ├── pedido/       # Pedidos antecipados (fura-fila)
+│   │   │   └── usuario/      # Usuario, auth, dependentes, COPPA, push tokens
+│   │   ├── infrastructure/
+│   │   │   ├── gateway/      # Mercado Pago + simulados (cartão/boleto/pix)
+│   │   │   └── webhook/      # Webhooks inbound (MP) e outbound (cantinas)
+│   │   ├── controller/       # Controllers shared (admin, notificações, LGPD)
+│   │   └── service/          # Services shared (NotificacaoService SSE, LgpdService)
+│   ├── src/main/resources/
+│   │   ├── application.properties           # dev + defaults
+│   │   ├── application-prod.properties      # Postgres + Flyway
+│   │   └── db/migration/V1__baseline.sql    # marcador Flyway
+│   └── Dockerfile
+├── frontend/
+│   ├── src/
+│   │   ├── components/       # Layout, UI (Field, QrScanner), PwaInstallPrompt
+│   │   ├── context/          # AuthContext, NotificacoesContext (SSE)
+│   │   ├── features/         # Slices por papel
+│   │   │   ├── admin/        # Painel da rede
+│   │   │   ├── auth/         # Login + Registro (+ Google)
+│   │   │   ├── cantina/      # PDV, produtos, pedidos, relatórios, caixa, faturas
+│   │   │   ├── estudante/    # Dashboard QR/NFC, pedidos, conquistas
+│   │   │   └── responsavel/  # Dashboard, dependente, mesada, auto-recarga
+│   │   ├── pages/            # Landing, MinhaConta, PoliticaPrivacidade
+│   │   └── services/         # api.js (axios), nfc.js, push.js, firebase.js
+│   ├── public/firebase-messaging-sw.js   # SW dedicado FCM
+│   └── vite.config.js                    # PWA + proxy /api
+└── render.yaml               # Blueprint Render (Postgres + Web Service)
 ```
 
 ---
 
-## Deploy
+## Decisões técnicas
 
-### Backend → Render
+### 1. Banco: H2 em dev, Postgres em prod (mesmo dialeto JPA)
 
-**Opção A — Blueprint (1 clique):**
-1. Suba o projeto para o GitHub.
-2. Render → [Blueprints](https://dashboard.render.com/blueprints) → **New Blueprint Instance** → conecte o repo.
-   O [`render.yaml`](render.yaml) na raiz provisiona:
-   - Postgres free (1 GB / 90 dias)
-   - Web Service Docker rodando o backend
-   - `JWT_SECRET` gerado automaticamente
-   - Health check em `/api/health`
-3. Após subir, ajuste `CORS_ORIGINS` para a URL da Vercel e faça Manual Deploy.
+Quem clona o repo roda `./mvnw spring-boot:run` e tem um banco funcional **sem instalar nada**. O profile `prod` troca para Postgres sem mudar código de entidade. Custo: dialeto SQL nativo divergir entre H2 e Postgres em queries complexas — todas as queries hoje usam JPQL (portável).
 
-**Opção B — Manual:**
-1. Render → **New Web Service** → conecte o repo.
-2. Root Directory: `backend` · Runtime: **Docker**
-3. Variáveis (veja [backend/.env.example](backend/.env.example)).
-4. Aponte Health Check Path para `/api/health` (em **Settings**).
+### 2. Flyway em modo baseline, schema ainda controlado pelo Hibernate
 
-> ⚠️ **Free tier do Render dorme após 15 min** de inatividade. O primeiro request acorda o serviço em ~30s. Boot frio pode levar 90–130s (Postgres + Hibernate + Spring).
->
-> ⚠️ **Memória apertada**: o `Dockerfile` já vem com `-Xms128m -Xmx320m -XX:+UseSerialGC` para caber nos 512 MB do free tier.
+`spring.flyway.baseline-on-migrate=true` + `baseline-version=1` permite adotar Flyway sem precisar reescrever o schema existente. Mudanças futuras vão como `V2__*.sql`. Decisão pragmática para um MVP: trocar `ddl-auto=update` por `validate` só quando o time tiver disciplina de gerar migration a cada PR.
 
-### Frontend → Vercel
+### 3. Gateway de pagamento com bean condicional (simulated vs Mercado Pago)
 
-1. Vercel → **Add New → Project** → conecte o repo.
-2. Root Directory: `frontend` · Framework: **Vite** (detectado automaticamente).
-3. Variável de ambiente:
-   - `VITE_API_URL=https://merenda-backend.onrender.com/api`
-4. Deploy.
+`PagamentoConfig` cria `PagamentoGateway`, `CartaoGateway` e `BoletoGateway` baseado em `PAGAMENTO_GATEWAY` (env). Em dev sem credenciais MP, tudo cai automaticamente em simulated — útil para CI, demos, novos contribuidores. O contrato do gateway é o mesmo; o service não sabe qual implementação está rodando.
 
-O arquivo [`frontend/vercel.json`](frontend/vercel.json) faz rewrites para o React Router não dar 404 ao recarregar uma rota interna.
+### 4. Cartão recorrente via Customer/Cards API do MP (não Subscriptions)
 
-### Ordem recomendada
-1. Backend no Render (anote a URL).
-2. Frontend na Vercel apontando para essa URL (anote a URL).
-3. Volte ao Render → `CORS_ORIGINS` = URL exata da Vercel → Manual Deploy.
+Para **mesada** (cobrança em data fixa) e **auto-recarga** (cobrança quando saldo cai), usei `POST /v1/customers` + `POST /v1/customers/{id}/cards` e cobrança via `payer.type=customer`. A alternativa (`/preapproval` Subscriptions) é mais limpa para mesada, mas:
+- Auto-recarga não tem frequência fixa, não cabe em Subscriptions.
+- Implementar dois fluxos (Customer para uma feature, Preapproval para outra) duplica código.
 
-### Desenvolvimento local
-Em dev, os defaults funcionam sem nenhuma env var:
-- Backend usa H2 file local.
-- Frontend usa proxy `/api → :8080`.
+Trade-off: em produção, MIT (merchant-initiated transaction) com cartão salvo pode exigir acordo específico com o MP. Em sandbox funciona com o token original.
 
----
+### 5. SSE para notificações em vez de WebSocket
 
-## Migrations e schema em produção
+Notificações de compra são unidirecionais (servidor → cliente). SSE roda sobre HTTP/1.1 normal (passa por qualquer proxy), reconecta sozinho, não precisa de biblioteca extra. WebSocket seria overkill aqui.
 
-O profile `prod` traz `spring.jpa.hibernate.ddl-auto=update` por default, mas no Render a env var `SPRING_JPA_HIBERNATE_DDL_AUTO=none` está fixada como proteção — o Hibernate **não** altera o schema automaticamente.
+### 6. QR Code com TTL de 90s + NFC com TTL de 30s
 
-Isso significa que, sempre que você adicionar/remover colunas em uma `@Entity`, a migração precisa ser aplicada manualmente no Postgres do Render (via DBeaver / pgAdmin / aba **Connect** do banco) antes do deploy do código novo.
+Token de pagamento expira rápido para reduzir janela de fraude se o aluno deixar a tela aberta. Sem TTL, o token vira "vale-refeição" permanente — quem pegar a tela paga em qualquer cantina conectada.
 
-### Exemplo
+### 7. Web NFC API nativa (sem app nativo)
 
-Ao adicionar `dataNascimento` em `Usuario`, antes de subir o backend:
+A leitura/escrita NFC roda direto no Chrome Android via `NDEFReader`. Zero infraestrutura extra, zero dependência. Limitação clara: só Android + Chrome + HTTPS — em iOS o caminho seria Capacitor ou app nativo (fora do escopo MVP). Para o MVP, QR Code é o fallback universal.
 
-```sql
-ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS data_nascimento DATE;
-```
+### 8. LGPD: anonimização em vez de DELETE
 
-Se o deploy sobe sem o `ALTER`, todos os endpoints que tocam a entidade quebram com `DataAccessException` (`column ... does not exist`) e o `GlobalExceptionHandler` responde **503** ao cliente com mensagem amigável.
+Endpoint `DELETE /api/lgpd/conta` não apaga o registro do usuário — apaga PII (nome, email, CPF, telefone) e marca a conta como inativa. Transações ficam intactas (obrigação contábil/fiscal). O usuário recebe a explicação no response.
 
-### Alternativas
-- **Curto prazo:** trocar a env do Render para `update` antes do deploy, deixar o Hibernate aplicar, e voltar para `none`.
-- **Médio prazo (recomendado):** adotar **Flyway** ou **Liquibase** para versionar migrations em `db/migration/V*.sql`, e setar `ddl-auto=validate` para o Hibernate apenas verificar (sem tocar no schema).
+### 9. COPPA implementado como serviço dedicado
+
+Para estudantes < 13 anos, o cadastro só passa com `verificacaoParental=true` explícito do responsável. `CoppaService` sanitiza CPF/telefone do menor automaticamente. Justificativa: LGPD/ECA tratam menores em geral, COPPA é mais restrito para o subgrupo < 13 — ter código separado deixa a regra auditável.
+
+### 10. `IllegalStateException` no `GlobalExceptionHandler` → HTTP 502
+
+Integrações externas (MP, Firebase) lançam `IllegalStateException` com a mensagem do gateway. O handler retorna 502 + a mensagem real do MP. Antes era 500 genérico engolindo o erro — depurar era impossível sem ler o log do servidor.
 
 ---
 
-## Roadmap
+## Próximos passos
 
-- **Fase 1 — MVP** ✅
-  - Cadastro de responsáveis, dependentes, cantinas e operadores
-  - Recarga manual + recarga Pix (gateway simulated e Mercado Pago)
-  - QR Code dinâmico no app do aluno
-  - PDV da cantina
-  - Extratos
-- **Fase 2 — Controle** ✅
-  - Limites diário/semanal
-  - Bloqueio nutricional por categoria
-  - Gestão de cardápio e estoque
-- **Fase 3 — Visibilidade & Integração** ✅
-  - Relatórios avançados + export CSV
-  - Painel da rede (admin)
-  - Webhooks com HMAC-SHA256
-  - Planos e cotas por cantina
-- **Fase 4 — Engajamento & Conveniência** ✅
-  - Login social via Google OAuth 2.0
-  - LGPD/ECA (consentimento, exportação, direito ao apagamento)
-  - Mesada programada com recorrência (cartão de crédito)
-  - Recarga via boleto e cartão de crédito (com taxa de conveniência)
-  - Pré-venda / fura-fila (pedido antes do recreio)
-  - Gamificação para o estudante (metas, progresso)
-  - Pagamento NFC (pulseiras / tags)
-  - Fechamento de caixa e faturas SaaS por cantina
-  - Notificações in-app via SSE em tempo real
-- **Fase 5 — Próximos passos** ⏳
-  - Migrations versionadas (Flyway/Liquibase) substituindo o `ddl-auto` manual
-  - Push real via FCM (hoje em modo mock)
-  - SSO corporativo (OIDC/SAML) para redes de escolas
-  - Cashback saudável (gamificação financeira)
-  - App mobile nativo
+Realistas, em ordem de impacto:
+
+### Curto prazo
+
+1. **Testes automatizados.** Hoje o repo tem 0 arquivos em `src/test/`. Começar com testes de integração dos services críticos (`PagamentoService`, `RecargaPixService`, `MesadaService`) usando `@SpringBootTest` + Testcontainers Postgres.
+2. **Migrar `ddl-auto=update` para `validate` em prod.** Gerar `V2__init.sql` com o schema atual via `mvn flyway:baseline + spring.jpa.properties.hibernate.hbm2ddl.scripts.create-target`.
+3. **Rate limiting** em `/api/auth/*` e `/api/pagamentos/cobrar`. Bucket4j ou um `OncePerRequestFilter` simples com Caffeine.
+4. **Spring Actuator + Prometheus.** Endpoints `/actuator/health`, `/actuator/metrics`, `/actuator/prometheus` para observabilidade básica.
+5. **Code-splitting do frontend.** Hoje o bundle único tem ~900 KB (gzip ~245 KB). Lazy-load das páginas por rota (`React.lazy`).
+
+### Médio prazo
+
+6. **Email transacional.** SMTP via Spring Mail (recibos de recarga, alerta de auto-recarga falhada). Hoje só existe push + SSE.
+7. **Subscriptions API do MP** para mesada (em vez de MIT manual com cartão salvo), quando o volume justificar.
+8. **CI/CD com GitHub Actions** — build + test + deploy automático para Render/Vercel.
+9. **App nativo iOS via Capacitor** se NFC virar requisito não-negociável.
+10. **Internacionalização.** Hoje strings hardcoded em pt-BR.
 
 ---
 
 ## Licença
 
-Projeto MVP educacional. Uso comercial sob consulta.
+MIT — ver [LICENSE](./LICENSE) se aplicável. Em ambiente sem licença explícita, considere "uso interno" até definir.
